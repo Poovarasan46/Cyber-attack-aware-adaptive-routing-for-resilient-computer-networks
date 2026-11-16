@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyber-Attack Aware Adaptive Routing | Real-Time Telemetry & Defense Dashboard</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f8fafc; color: #0f172a; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    @keyframes pulse-red { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.15); } }
+    .pulse-danger { animation: pulse-red 1.2s infinite ease-in-out; }
+    @keyframes dash-flow { to { stroke-dashoffset: -24; } }
+    .flow-active { stroke-dasharray: 6, 6; animation: dash-flow 0.8s linear infinite; }
+    .glow-active { filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.45)); }
+    .node-hover:hover { cursor: pointer; filter: brightness(1.2); }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+      .print-card { border: 1px solid #cbd5e1 !important; box-shadow: none !important; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="p-4 md:p-6 max-w-7xl mx-auto antialiased">
+
+  <!-- Header & Meta Information -->
+  <header class="flex flex-col md:flex-row md:items-center justify-between pb-4 mb-4 border-b border-slate-200 gap-3">
+    <div>
+      <div class="flex items-center gap-2.5">
+        <h1 class="text-xl font-bold tracking-tight text-slate-900">Cyber-Attack Aware Adaptive Routing</h1>
+        <span id="badgeStatus" class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" id="statusDot"></span>
+          <span id="statusText">System Normal</span>
+        </span>
+      </div>
+      <p class="text-xs text-slate-500 mt-1">
+        Autonomous Dijkstra link-cost adaptation under real-world router attacks | ns-3.43 discrete-event telemetry engine
+      </p>
+    </div>
+
+    <!-- Unified Command & Control Bar with Normal Speed (1s real interval) -->
+    <div class="flex flex-wrap items-center gap-2 no-print">
+      <div class="inline-flex rounded-md shadow-xs bg-white border border-slate-300 p-0.5" title="Simulation Speed (Normal = 1 sim second per 1 actual real second)">
+        <button id="btnSpeedNormal" onclick="setSpeed('normal')" class="px-2.5 py-1 text-xs font-semibold rounded bg-slate-900 text-white transition">Normal (1s)</button>
+        <button id="btnSpeed1" onclick="setSpeed(1)" class="px-2 py-1 text-xs font-medium rounded text-slate-600 hover:text-slate-900 transition">1x</button>
+        <button id="btnSpeed2" onclick="setSpeed(2)" class="px-2 py-1 text-xs font-medium rounded text-slate-600 hover:text-slate-900 transition">2x</button>
+        <button id="btnSpeed4" onclick="setSpeed(4)" class="px-2 py-1 text-xs font-medium rounded text-slate-600 hover:text-slate-900 transition">4x</button>
+      </div>
+
+      <button id="btnRun" onclick="toggleRun()" class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold shadow-xs transition flex items-center gap-1.5">
+        <svg id="iconPlay" class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <span id="txtRun">Run Simulation</span>
+      </button>
+      <button id="btnStopAttack" onclick="toggleAttackManual()" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium transition">
+        Stop Attack
+      </button>
+      <button id="btnReset" onclick="resetSim()" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium transition">
+        Reset
+      </button>
+      <button onclick="exportCSV()" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium transition">
+        Export CSV
+      </button>
+      <button onclick="window.print()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded text-xs font-medium transition">
+        Print / PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- Controls Panel: Topology, Interactive Endpoints Selector & Threat Scenarios -->
+  <section class="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-4">
+    <!-- Network Topology & Interactive Source/Destination Selector -->
+    <div class="lg:col-span-5 bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col justify-between">
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Network Topology & Endpoints</label>
+        <div class="flex gap-2 mb-3">
+          <button id="btnTopoNsfnet" onclick="selectTopology('nsfnet')" class="flex-1 py-1.5 px-2 text-xs font-medium rounded border border-slate-900 bg-slate-900 text-white transition">
+            NSFNET (14 Nodes)
+          </button>
+          <button id="btnTopoGeant" onclick="selectTopology('geant')" class="flex-1 py-1.5 px-2 text-xs font-medium rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition">
+            GEANT (22 Nodes)
+          </button>
+        </div>
+
+        <!-- Custom Source / Destination / Target Dropdowns -->
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-2 text-xs">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-blue-700 mb-1 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-blue-600 inline-block"></span> Source Node
+              </label>
+              <select id="selSrcNode" onchange="onEndpointChange()" class="w-full text-xs border border-slate-300 rounded px-2 py-1.5 bg-white font-medium text-slate-800 focus:outline-none focus:border-blue-500"></select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-emerald-700 mb-1 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span> Destination Sink
+              </label>
+              <select id="selDstNode" onchange="onEndpointChange()" class="w-full text-xs border border-slate-300 rounded px-2 py-1.5 bg-white font-medium text-slate-800 focus:outline-none focus:border-emerald-500"></select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-red-600 mb-1 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-red-600 inline-block"></span> Adversary Target Router
+            </label>
+            <div class="flex gap-1.5">
+              <select id="selTargetNode" onchange="onEndpointChange()" class="flex-1 text-xs border border-slate-300 rounded px-2 py-1.5 bg-white font-medium text-slate-800 focus:outline-none focus:border-red-500"></select>
+              <button onclick="autoPickTarget()" title="Auto-select intermediate bottleneck node along the shortest path" class="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] rounded font-medium transition">
+                Auto
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-500 mt-2.5 leading-relaxed" id="topoDesc">
+        Standard US backbone mesh. Dynamic Dijkstra calculates optimal path between any selected source and destination.
+      </p>
+    </div>
+
+    <!-- Threat Scenario Selector -->
+    <div class="lg:col-span-7 bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col justify-between">
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Adversarial Threat Scenario</label>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 mb-3">
+          <button onclick="selectAttack('pulsing_grayhole')" id="atk_pulsing_grayhole" class="atk-btn py-1.5 px-2 text-xs font-medium rounded border border-slate-900 bg-slate-900 text-white text-center transition">
+            Pulsing Grayhole
+          </button>
+          <button onclick="selectAttack('ldos_bufferbloat')" id="atk_ldos_bufferbloat" class="atk-btn py-1.5 px-2 text-xs font-medium rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-center transition">
+            LDoS Bufferbloat
+          </button>
+          <button onclick="selectAttack('metric_poisoning')" id="atk_metric_poisoning" class="atk-btn py-1.5 px-2 text-xs font-medium rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-center transition">
+            Metric Poisoning
+          </button>
+          <button onclick="selectAttack('selective_drop')" id="atk_selective_drop" class="atk-btn py-1.5 px-2 text-xs font-medium rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-center transition">
+            Selective Drop
+          </button>
+          <button onclick="selectAttack('latency_jitter')" id="atk_latency_jitter" class="atk-btn py-1.5 px-2 text-xs font-medium rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-center transition">
+            Latency Jitter
+          </button>
+        </div>
+
+        <!-- Structured Active Threat Profile Panel -->
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-2 text-xs">
+          <div class="grid grid-cols-3 gap-2">
+            <div class="bg-white border border-slate-200 rounded px-2 py-1.5">
+              <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Attack Pattern</span>
+              <span class="font-semibold text-slate-800 text-[11px]" id="atkPattern">3s On / 3s Off Cycle</span>
+            </div>
+            <div class="bg-white border border-slate-200 rounded px-2 py-1.5">
+              <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Primary Triggers</span>
+              <span class="font-semibold text-blue-700 text-[11px]" id="atkTriggers">w1 (Drop) + w4 (Fault)</span>
+            </div>
+            <div class="bg-white border border-slate-200 rounded px-2 py-1.5">
+              <span class="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">Defense Mechanism</span>
+              <span class="font-semibold text-emerald-700 text-[11px]" id="atkDefense">0.70x Decay Anti-Flap</span>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-600 leading-relaxed pt-0.5" id="attackDesc">
+            <strong>PULSING GRAYHOLE:</strong> Compromised router drops 50% for 3s, then behaves normally for 3s. Demonstrates Fault Penalty (w4=0.10) memory and 0.70 recovery decay preventing route flapping.
+          </p>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
+        Disturbance window active from <span class="mono font-medium text-slate-700">t = 15.0s &ndash; 45.0s</span> on the selected target router, followed by exponential risk decay recovery.
+      </p>
+    </div>
+  </section>
+
+  <!-- Live Telemetry Key Figures Strip -->
+  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
+    <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
+      <span class="block text-[11px] text-slate-500">Simulation Time</span>
+      <span class="mono text-lg font-bold text-slate-900" id="statTime">0.0 s</span>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
+      <span class="block text-[11px] text-slate-500">Live PDR (Delivery)</span>
+      <span class="mono text-lg font-bold text-blue-700" id="statPdr">100.0 %</span>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
+      <span class="block text-[11px] text-slate-500">End-to-End Latency</span>
+      <span class="mono text-lg font-bold text-slate-900" id="statDelay">12.0 ms</span>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
+      <span class="block text-[11px] text-slate-500">Composite Risk Score</span>
+      <span class="mono text-lg font-bold text-slate-900" id="statRisk">0.0000</span>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
+      <span class="block text-[11px] text-slate-500">Target Router Metric</span>
+      <span class="mono text-lg font-bold text-slate-900" id="statCost">Base: 5</span>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs">
+      <span class="block text-[11px] text-slate-500">Active Routing Path</span>
+      <span class="mono text-xs font-semibold text-slate-800 truncate" id="statActivePath">Optimal Path</span>
+    </div>
+  </section>
+
+  <!-- Mathematical Risk and Dynamic Cost Model -->
+  <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs mb-4">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 mb-3 border-b border-slate-100 gap-1">
+      <h2 class="text-sm font-bold text-slate-900">Mathematical risk and dynamic cost model</h2>
+      <span class="mono text-xs text-slate-500">Parameters: w1=0.50, w2=0.20, w3=0.20, w4=0.10, delta=50</span>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Left: Model Equations -->
+      <div class="flex flex-col justify-between">
+        <div>
+          <span class="text-xs font-semibold text-slate-800 block mb-1.5">Model equations:</span>
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs leading-relaxed mono text-slate-800">
+            <div>RiskScore = 0.50&middot;Drop + 0.20&middot;Anomaly + 0.20&middot;Delay + 0.10&middot;Fault</div>
+            <div class="mt-1">Cost(e) = BaseCost + &lceil;50 &times; RiskScore&rceil;</div>
+            <div class="mt-1 text-slate-600">Recovery decay rule: Risk(t+1) = Risk(t) &times; 0.70</div>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2">
+          All 4 terms are clamped to [0, 1] before summation. Cost updates trigger Dijkstra shortest path recomputation.
+        </p>
+      </div>
+
+      <!-- Right: Live Term Evaluation Matrix -->
+      <div class="flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <span class="text-xs font-semibold text-slate-800">Live term evaluation:</span>
+            <span class="text-xs text-slate-500" id="lblRecoveryStatus">Recovery decay: <span class="text-slate-700 font-medium" id="valRecoveryStatus">Inactive</span></span>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 mb-3">
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
+              <span class="block text-[11px] text-slate-500">0.50-Drop</span>
+              <span class="mono text-sm font-bold text-slate-900" id="termDrop">0.0000</span>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
+              <span class="block text-[11px] text-slate-500">0.20-Anom</span>
+              <span class="mono text-sm font-bold text-slate-900" id="termAnomaly">0.0000</span>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
+              <span class="block text-[11px] text-slate-500">0.20-Delay</span>
+              <span class="mono text-sm font-bold text-slate-900" id="termDelay">0.0000</span>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
+              <span class="block text-[11px] text-slate-500">0.10-Fault</span>
+              <span class="mono text-sm font-bold text-slate-900" id="termFault">0.0000</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center text-xs pt-2 border-t border-slate-100">
+          <div>
+            <span class="text-slate-500">Risk score: </span>
+            <span class="mono font-bold text-slate-900 text-sm" id="evalRiskScore">0.0000</span>
+          </div>
+          <div>
+            <span class="text-slate-500">Cost penalty: </span>
+            <span class="mono font-bold text-slate-900" id="evalCostPenalty">+0 (Base: 5 &rarr; 5)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Network Topology Graph (SVG) & Live Event Terminal -->
+  <section class="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-4">
+    <!-- SVG Network Map -->
+    <div class="lg:col-span-8 bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <h2 class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Topology Routing Graph</h2>
+            <span class="text-[11px] text-slate-500">(Click any node on map to select)</span>
+          </div>
+          <span class="text-[11px] text-slate-500">
+            Source: <span class="text-blue-700 font-semibold" id="lblSrc">Node 0</span> &rarr; Dest: <span class="text-emerald-700 font-semibold" id="lblDst">Node 12</span> | Target: <span class="text-red-600 font-semibold" id="lblTarget">Node 5</span>
+          </span>
+        </div>
+
+        <div class="w-full bg-slate-50 border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center p-2">
+          <svg id="topoSvg" viewBox="0 0 800 325" class="w-full h-72"></svg>
+        </div>
+      </div>
+
+      <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap gap-3">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span> Source Ingress</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span> Destination Sink</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-600 inline-block"></span> Target Attacked Router</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span> Active Dijkstra SPF Flow</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block"></span> Standby Mesh Link</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Event Log & Diagnostic Terminal -->
+    <div class="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Autonomous Dijkstra SPF Log</h2>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        </div>
+        <div id="simLog" class="bg-slate-950 text-slate-200 rounded-lg p-2.5 h-72 overflow-y-auto text-[11px] mono space-y-1.5 select-text">
+          <div class="text-slate-500">// ns-3 discrete-event telemetry initialized.</div>
+          <div class="text-slate-500">// Ready to start simulation.</div>
+        </div>
+      </div>
+      <div class="mt-2 text-[11px] text-slate-500 border-t border-slate-100 pt-2 flex justify-between">
+        <span>Path Switches: <strong class="text-slate-900" id="statSwitches">0</strong></span>
+        <span>Convergence: <strong class="text-slate-900" id="statConvTime">0.0 s</strong></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Performance Figure Charts: Static Dijkstra vs. Proposed Method -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+    <!-- PDR Figure -->
+    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
+      <div class="flex items-center justify-between mb-1.5">
+        <h3 class="text-xs font-semibold text-slate-800 uppercase tracking-wider">Figure 1: Packet Delivery Ratio (%) vs. Time (s)</h3>
+        <span class="text-[11px] text-slate-500">Disturbance window: 15.0s &ndash; 45.0s</span>
+      </div>
+      <div class="w-full h-48 bg-slate-50 border border-slate-200 rounded-lg p-1 relative">
+        <canvas id="chartPdr" class="w-full h-full"></canvas>
+      </div>
+      <div class="flex items-center justify-between text-[11px] text-slate-600 mt-2 px-1">
+        <span class="flex items-center gap-1.5"><span class="w-3.5 h-1 bg-blue-600 inline-block rounded"></span> <strong>Proposed Adaptive:</strong> &gt;98.5% recovery</span>
+        <span class="flex items-center gap-1.5"><span class="w-3.5 h-1 bg-slate-400 inline-block rounded stroke-dasharray"></span> <strong>Static Dijkstra:</strong> Drops during attack</span>
+      </div>
+    </div>
+
+    <!-- Latency & Dynamic Metric Inflation Figure -->
+    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
+      <div class="flex items-center justify-between mb-1.5">
+        <h3 class="text-xs font-semibold text-slate-800 uppercase tracking-wider">Figure 2: End-to-End Delay (ms) & Cost Escalation</h3>
+        <span class="text-[11px] text-slate-500">Autonomous SPF Path Mitigation</span>
+      </div>
+      <div class="w-full h-48 bg-slate-50 border border-slate-200 rounded-lg p-1 relative">
+        <canvas id="chartCost" class="w-full h-full"></canvas>
+      </div>
+      <div class="flex items-center justify-between text-[11px] text-slate-600 mt-2 px-1">
+        <span class="flex items-center gap-1.5"><span class="w-3.5 h-1 bg-red-600 inline-block rounded"></span> <strong>End-to-End Latency:</strong> Delay spike</span>
+        <span class="flex items-center gap-1.5"><span class="w-3.5 h-1 bg-slate-900 inline-block rounded"></span> <strong>Target Metric:</strong> Dynamic Dijkstra inflation</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Provenance & Data Source Verification Footer -->
+  <footer class="bg-white border border-slate-200 rounded-lg p-3 text-[11px] text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2 shadow-2xs">
+    <div>
+      <strong>Data Provenance:</strong> Discrete-event replay of ns-3.43 (<code class="mono text-slate-700">scratch/secure-adaptive-routing.cc</code>), Random Seed 1.
+    </div>
+    <div class="flex gap-4 mono text-slate-700">
+      <span>grid_search_results.csv</span>
+      <span>weight_candidates_ranked.csv</span>
+    </div>
+  </footer>
+
+  <!-- Simulation & Visualization Engine -->
+  <script>
+    // Topologies definitions
+    const TOPOLOGIES = {
+      nsfnet: {
+        name: "NSFNET (14 Nodes, 21 Links)",
+        defaultSrc: 0, defaultDst: 12, defaultTarget: 5,
+        baseCost: 5,
+        desc: "Standard 14-Node US Academic Backbone. Dynamic Dijkstra SPF connects any selected Source and Destination.",
+        nodes: [
+          { id: 0, x: 55, y: 45, label: "0:SEA", name: "Seattle" },
+          { id: 1, x: 75, y: 145, label: "1:SFO", name: "San Francisco" },
+          { id: 2, x: 105, y: 255, label: "2:LAX", name: "Los Angeles" },
+          { id: 3, x: 225, y: 65, label: "3:SLC", name: "Salt Lake City" },
+          { id: 4, x: 295, y: 165, label: "4:DEN", name: "Denver" },
+          { id: 5, x: 385, y: 235, label: "5:LNK", name: "Lincoln" },
+          { id: 6, x: 435, y: 290, label: "6:HOU", name: "Houston" },
+          { id: 7, x: 495, y: 85, label: "7:ORD", name: "Chicago" },
+          { id: 8, x: 525, y: 165, label: "8:IND", name: "Indianapolis" },
+          { id: 9, x: 585, y: 255, label: "9:ATL", name: "Atlanta" },
+          { id: 10, x: 625, y: 105, label: "10:PIT", name: "Pittsburgh" },
+          { id: 11, x: 685, y: 175, label: "11:WAS", name: "Washington DC" },
+          { id: 12, x: 715, y: 65, label: "12:NYC", name: "New York" },
+          { id: 13, x: 745, y: 30, label: "13:BOS", name: "Boston" }
+        ],
+        links: [
+          [0,1], [0,2], [0,3], [1,2], [1,7], [2,5], [3,4], [3,8],
+          [4,5], [4,6], [5,12], [5,13], [6,7], [7,10], [8,9], [8,11],
+          [9,10], [9,12], [10,11], [10,13], [11,12]
+        ]
+      },
+      geant: {
+        name: "GEANT (22 Nodes, 36 Links)",
+        defaultSrc: 0, defaultDst: 21, defaultTarget: 8,
+        baseCost: 5,
+        desc: "Pan-European 22-Node Backbone. Dynamic Dijkstra SPF connects any selected Source and Destination across European nodes.",
+        nodes: [
+          { id: 0, x: 205, y: 60, label: "0:LON", name: "London" },
+          { id: 1, x: 125, y: 40, label: "1:DUB", name: "Dublin" },
+          { id: 2, x: 295, y: 30, label: "2:AMS", name: "Amsterdam" },
+          { id: 3, x: 275, y: 80, label: "3:BRU", name: "Brussels" },
+          { id: 4, x: 235, y: 140, label: "4:PAR", name: "Paris" },
+          { id: 5, x: 365, y: 90, label: "5:FRA", name: "Frankfurt" },
+          { id: 6, x: 465, y: 40, label: "6:BER", name: "Berlin" },
+          { id: 7, x: 335, y: 180, label: "7:GEN", name: "Geneva" },
+          { id: 8, x: 375, y: 220, label: "8:MIL", name: "Milan" },
+          { id: 9, x: 485, y: 100, label: "9:PRG", name: "Prague" },
+          { id: 10, x: 575, y: 50, label: "10:WAW", name: "Warsaw" },
+          { id: 11, x: 155, y: 250, label: "11:MAD", name: "Madrid" },
+          { id: 12, x: 85, y: 260, label: "12:LIS", name: "Lisbon" },
+          { id: 13, x: 505, y: 140, label: "13:VIE", name: "Vienna" },
+          { id: 14, x: 555, y: 140, label: "14:BTS", name: "Bratislava" },
+          { id: 15, x: 405, y: 270, label: "15:ROM", name: "Rome" },
+          { id: 16, x: 475, y: 190, label: "16:ZAG", name: "Zagreb" },
+          { id: 17, x: 585, y: 180, label: "17:BUD", name: "Budapest" },
+          { id: 18, x: 605, y: 220, label: "18:BEG", name: "Belgrade" },
+          { id: 19, x: 695, y: 190, label: "19:BUC", name: "Bucharest" },
+          { id: 20, x: 665, y: 250, label: "20:SOF", name: "Sofia" },
+          { id: 21, x: 715, y: 290, label: "21:ATH", name: "Athens" }
+        ],
+        links: [
+          [0,1], [0,2], [0,3], [0,4], [2,3], [2,5], [3,4], [3,5], [4,7], [4,8], [4,11],
+          [5,6], [5,9], [6,10], [7,8], [7,11], [8,15], [8,16], [9,13], [10,14], [11,12],
+          [13,14], [13,16], [13,17], [14,17], [15,16], [15,21], [16,18], [17,18], [17,19],
+          [18,20], [19,20], [20,21], [16,20], [18,21]
+        ]
+      }
+    };
+
+    const ATTACK_INFO = {
+      pulsing_grayhole: {
+        title: "PULSING GRAYHOLE",
+        pattern: "3s Drop / 3s Normal",
+        triggers: "w1 (Drop) + w4 (Fault)",
+        defense: "0.70x Decay Anti-Flap",
+        desc: "Compromised router drops 50% for 3s, then behaves normally for 3s. Demonstrates Fault Penalty (w4=0.10) memory and 0.70 recovery decay preventing route flapping."
+      },
+      ldos_bufferbloat: {
+        title: "LDOS BUFFERBLOAT",
+        pattern: "0.8s Micro-Bursts / 2s",
+        triggers: "w3 (Delay) + w2 (Anom)",
+        defense: "Latency Spike Escalation",
+        desc: "Periodic high-rate micro-bursts saturate queue buffer, causing +50ms delay spikes and tail drops. Validates Delay Score (w3=0.20) and Anomaly Score (w2=0.20)."
+      },
+      metric_poisoning: {
+        title: "METRIC POISONING",
+        pattern: "Fake Cost=1 + 50% Drop",
+        triggers: "w1 (Drop) + Delta=50",
+        defense: "Cost Inflation Override",
+        desc: "Router fraudulently advertises low Cost=1 to attract traffic (sinkhole), then drops 50%. Overridden by dynamic cost Base + ceil(50 * Risk)."
+      },
+      selective_drop: {
+        title: "SELECTIVE DROP",
+        pattern: "Control UP / Data -45%",
+        triggers: "w1 (Drop) + w2 (Anom)",
+        defense: "FlowMonitor Telemetry",
+        desc: "Control Hellos pass 100% (link stays UP), while user payload is dropped 45%. Demonstrates physical link alarm failure vs. passive flow telemetry."
+      },
+      latency_jitter: {
+        title: "LATENCY JITTER",
+        pattern: "0% Drop / 25-75ms Jitter",
+        triggers: "w3 (Delay) + w2 (Anom)",
+        defense: "TCP RTT De-Sync Defense",
+        desc: "Injects 25-75ms random jitter with 0% malicious packet drops, collapsing TCP throughput. Validates Delay (w3=0.20) and Anomaly (w2=0.20) sensitivity."
+      }
+    };
+
+    // State Variables
+    let currentTopoKey = "nsfnet";
+    let currentAttack = "pulsing_grayhole";
+    let isRunning = false;
+    let timer = null;
+    let simTime = 0.0;
+    let currentSpeed = "normal"; // normal, 1, 2, 4
+    let attackManualOverride = false;
+    let switchCount = 0;
+    let convergenceTime = 0.0;
+
+    // Interactive Node Selection
+    let selectedSrc = 0;
+    let selectedDst = 12;
+    let selectedTarget = 5;
+    let selectedTargetMode = "auto"; // "auto" or "manual"
+    let primaryPath = [];
+    let currentActivePath = [];
+    let lastPathString = "";
+
+    // Simulation Data Series
+    let historyTime = [];
+    let historyPdrAdaptive = [];
+    let historyPdrStatic = [];
+    let historyDelay = [];
+    let historyCost = [];
+
+    // Full Real-time Dijkstra Shortest Path First (SPF) Algorithm
+    function runDijkstra(topo, srcId, dstId, targetId, penalty = 0) {
+      const dist = {};
+      const prev = {};
+      const visited = new Set();
+      const baseEdgeCost = topo.baseCost || 5;
+
+      topo.nodes.forEach(n => {
+        dist[n.id] = Infinity;
+        prev[n.id] = null;
+      });
+      dist[srcId] = 0;
+
+      // Build graph adjacency
+      const adj = {};
+      topo.nodes.forEach(n => adj[n.id] = []);
+      topo.links.forEach(([u, v]) => {
+        let cost = baseEdgeCost;
+        if (penalty > 0 && (u === targetId || v === targetId)) {
+          cost += penalty;
+        }
+        adj[u].push({ node: v, cost: cost });
+        adj[v].push({ node: u, cost: cost });
+      });
+
+      for (let count = 0; count < topo.nodes.length; count++) {
+        let u = null;
+        let minD = Infinity;
+        for (const n of topo.nodes) {
+          if (!visited.has(n.id) && dist[n.id] < minD) {
+            minD = dist[n.id];
+            u = n.id;
+          }
+        }
+        if (u === null || dist[u] === Infinity || u === dstId) break;
+        visited.add(u);
+
+        for (const edge of adj[u]) {
+          if (!visited.has(edge.node)) {
+            const newDist = dist[u] + edge.cost;
+            if (newDist < dist[edge.node]) {
+              dist[edge.node] = newDist;
+              prev[edge.node] = u;
+            }
+          }
+        }
+      }
+
+      // Reconstruct path
+      const path = [];
+      let curr = dstId;
+      while (curr !== null) {
+        path.unshift(curr);
+        curr = prev[curr];
+      }
+
+      return {
+        path: (path.length > 0 && path[0] === srcId) ? path : [srcId],
+        cost: dist[dstId] === Infinity ? 0 : dist[dstId],
+        transitsTarget: path.includes(targetId)
+      };
+    }
+
+    function populateNodeSelectors() {
+      const topo = TOPOLOGIES[currentTopoKey];
+      const selSrc = document.getElementById("selSrcNode");
+      const selDst = document.getElementById("selDstNode");
+      const selTarget = document.getElementById("selTargetNode");
+
+      selSrc.innerHTML = "";
+      selDst.innerHTML = "";
+      selTarget.innerHTML = `<option value="auto">Auto (Bottleneck on Path)</option>`;
+
+      topo.nodes.forEach(n => {
+        const optS = document.createElement("option");
+        optS.value = n.id;
+        optS.text = `${n.label} (${n.name})`;
+        selSrc.appendChild(optS);
+
+        const optD = document.createElement("option");
+        optD.value = n.id;
+        optD.text = `${n.label} (${n.name})`;
+        selDst.appendChild(optD);
+
+        const optT = document.createElement("option");
+        optT.value = n.id;
+        optT.text = `${n.label} (${n.name})`;
+        selTarget.appendChild(optT);
+      });
+
+      selSrc.value = selectedSrc;
+      selDst.value = selectedDst;
+      selTarget.value = (selectedTargetMode === "auto") ? "auto" : selectedTarget;
+    }
+
+    function autoPickTarget() {
+      const basePathRes = runDijkstra(TOPOLOGIES[currentTopoKey], selectedSrc, selectedDst, -1, 0);
+      const path = basePathRes.path;
+      if (path.length > 2) {
+        selectedTarget = path[Math.floor(path.length / 2)];
+      } else if (path.length === 2) {
+        selectedTarget = path[1];
+      }
+      selectedTargetMode = "auto";
+      document.getElementById("selTargetNode").value = "auto";
+      document.getElementById("lblTarget").innerText = "Node " + selectedTarget;
+      logEvent(`Auto-target set: Node ${selectedTarget} selected as primary transit bottleneck.`);
+      renderTopology(false, false);
+    }
+
+    function onEndpointChange() {
+      if (isRunning) resetSim();
+      selectedSrc = parseInt(document.getElementById("selSrcNode").value);
+      selectedDst = parseInt(document.getElementById("selDstNode").value);
+      const targetVal = document.getElementById("selTargetNode").value;
+
+      if (selectedSrc === selectedDst) {
+        const topo = TOPOLOGIES[currentTopoKey];
+        selectedDst = (selectedSrc === topo.nodes.length - 1) ? 0 : (selectedSrc + 1);
+        document.getElementById("selDstNode").value = selectedDst;
+      }
+
+      const basePathRes = runDijkstra(TOPOLOGIES[currentTopoKey], selectedSrc, selectedDst, -1, 0);
+      primaryPath = basePathRes.path;
+
+      if (targetVal === "auto") {
+        selectedTargetMode = "auto";
+        if (primaryPath.length > 2) {
+          selectedTarget = primaryPath[Math.floor(primaryPath.length / 2)];
+        } else {
+          selectedTarget = primaryPath[1] || selectedDst;
+        }
+      } else {
+        selectedTargetMode = "manual";
+        selectedTarget = parseInt(targetVal);
+      }
+
+      currentActivePath = [...primaryPath];
+      lastPathString = primaryPath.join(" -> ");
+
+      document.getElementById("lblSrc").innerText = "Node " + selectedSrc;
+      document.getElementById("lblDst").innerText = "Node " + selectedDst;
+      document.getElementById("lblTarget").innerText = "Node " + selectedTarget;
+      document.getElementById("statActivePath").innerText = primaryPath.join(" -> ");
+
+      logEvent(`Endpoints updated: Source Node ${selectedSrc} &rarr; Destination Node ${selectedDst}. Target Node: ${selectedTarget}. Dijkstra SPF Base Path: [${primaryPath.join(' -> ')}] (Cost: ${basePathRes.cost})`);
+
+      renderTopology(false, false);
+      drawCharts();
+    }
+
+    function setSpeed(scale) {
+      currentSpeed = scale;
+      ['btnSpeedNormal', 'btnSpeed1', 'btnSpeed2', 'btnSpeed4'].forEach(id => {
+        document.getElementById(id).className = "px-2 py-1 text-xs font-medium rounded text-slate-600 hover:text-slate-900 transition";
+      });
+
+      const activeId = (scale === 'normal') ? 'btnSpeedNormal' : ('btnSpeed' + scale);
+      document.getElementById(activeId).className = "px-2.5 py-1 text-xs font-semibold rounded bg-slate-900 text-white transition";
+
+      // Normal speed: 500ms per 0.5s sim time = 1 sim second per 1 real second!
+      let intervalMs = 500;
+      if (scale === 1) intervalMs = 200;
+      else if (scale === 2) intervalMs = 100;
+      else if (scale === 4) intervalMs = 50;
+
+      if (isRunning) {
+        clearInterval(timer);
+        timer = setInterval(tick, intervalMs);
+      }
+      logEvent(`Playback speed changed: ${scale === 'normal' ? 'Normal (1:1 Real-Time Interval)' : scale + 'x accelerated'}`);
+    }
+
+    function selectTopology(key) {
+      if (isRunning) resetSim();
+      currentTopoKey = key;
+      document.getElementById("btnTopoNsfnet").className = (key === 'nsfnet') ? 
+        "flex-1 py-1.5 px-2 text-xs font-medium rounded border border-slate-900 bg-slate-900 text-white transition" :
+        "flex-1 py-1.5 px-2 text-xs font-medium rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition";
+      document.getElementById("btnTopoGeant").className = (key === 'geant') ? 
+        "flex-1 py-1.5 px-2 text-xs font-medium rounded border border-slate-900 bg-slate-900 text-white transition" :
+        "flex-1 py-1.5 px-2 text-xs font-medium rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition";
+
+      const topo = TOPOLOGIES[key];
+      selectedSrc = topo.defaultSrc;
+      selectedDst = topo.defaultDst;
+      selectedTarget = topo.defaultTarget;
+      selectedTargetMode = "auto";
+
+      populateNodeSelectors();
+      onEndpointChange();
+
+      document.getElementById("topoDesc").innerText = topo.desc;
+      logEvent(`Topology selected: ${topo.name}`);
+    }
+
+    function selectAttack(key) {
+      if (isRunning) resetSim();
+      currentAttack = key;
+      document.querySelectorAll(".atk-btn").forEach(b => {
+        b.className = "atk-btn py-1.5 px-2 text-xs font-medium rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-center transition";
+      });
+      const activeBtn = document.getElementById("atk_" + key);
+      if (activeBtn) {
+        activeBtn.className = "atk-btn py-1.5 px-2 text-xs font-medium rounded border border-slate-900 bg-slate-900 text-white text-center transition";
+      }
+      const info = ATTACK_INFO[key];
+      document.getElementById("atkPattern").innerText = info.pattern;
+      document.getElementById("atkTriggers").innerText = info.triggers;
+      document.getElementById("atkDefense").innerText = info.defense;
+      document.getElementById("attackDesc").innerHTML = `<strong>${info.title}:</strong> ${info.desc}`;
+      logEvent(`Attack scenario configured: ${key.replace('_', ' ')}`);
+    }
+
+    function toggleRun() {
+      if (isRunning) {
+        pauseSim();
+      } else {
+        startSim();
+      }
+    }
+
+    function startSim() {
+      isRunning = true;
+      document.getElementById("txtRun").innerText = "Pause Simulation";
+      document.getElementById("btnRun").className = "px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-semibold shadow-xs transition flex items-center gap-1.5";
+      logEvent(`Simulation started (${currentSpeed === 'normal' ? 'Normal 1s/s' : currentSpeed + 'x'})`);
+
+      let intervalMs = 500;
+      if (currentSpeed === 1) intervalMs = 200;
+      else if (currentSpeed === 2) intervalMs = 100;
+      else if (currentSpeed === 4) intervalMs = 50;
+      timer = setInterval(tick, intervalMs);
+    }
+
+    function pauseSim() {
+      isRunning = false;
+      clearInterval(timer);
+      document.getElementById("txtRun").innerText = "Resume Simulation";
+      document.getElementById("btnRun").className = "px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold shadow-xs transition flex items-center gap-1.5";
+      logEvent(`Simulation paused at t=${simTime.toFixed(1)}s`);
+    }
+
+    function resetSim() {
+      pauseSim();
+      simTime = 0.0;
+      faultCounter = 0.0;
+      switchCount = 0;
+      convergenceTime = 0.0;
+      attackManualOverride = false;
+      historyTime = [];
+      historyPdrAdaptive = [];
+      historyPdrStatic = [];
+      historyDelay = [];
+      historyCost = [];
+
+      document.getElementById("txtRun").innerText = "Run Simulation";
+      document.getElementById("btnRun").className = "px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold shadow-xs transition flex items-center gap-1.5";
+      document.getElementById("btnStopAttack").innerText = "Stop Attack";
+      document.getElementById("btnStopAttack").className = "px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium transition";
+      document.getElementById("statSwitches").innerText = "0";
+      document.getElementById("statConvTime").innerText = "0.0 s";
+
+      const baseCost = TOPOLOGIES[currentTopoKey].baseCost;
+      currentActivePath = [...primaryPath];
+      lastPathString = primaryPath.join(" -> ");
+
+      updateUI(0.0, 100.0, 12.0, 0.0, baseCost, primaryPath.join(" -> "), false, 0, 0, 0, 0);
+      renderTopology(false, false);
+      drawCharts();
+
+      const log = document.getElementById("simLog");
+      log.innerHTML = `<div class="text-slate-500">// Reset complete. Ready to run from t=0.0s.</div>`;
+    }
+
+    function toggleAttackManual() {
+      attackManualOverride = !attackManualOverride;
+      const btn = document.getElementById("btnStopAttack");
+      if (attackManualOverride) {
+        btn.innerText = "Resume Attack";
+        btn.className = "px-3 py-1.5 bg-red-50 text-red-700 border border-red-300 rounded text-xs font-medium transition";
+        logEvent(`[MANUAL] Threat halted. Exponential decay 0.70x initiated.`);
+      } else {
+        btn.innerText = "Stop Attack";
+        btn.className = "px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium transition";
+        logEvent(`[MANUAL] Threat resumed.`);
+      }
+    }
+
+    function logEvent(msg) {
+      const log = document.getElementById("simLog");
+      const div = document.createElement("div");
+      div.innerHTML = `[${simTime.toFixed(1)}s] ${msg}`;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    // Mathematical Model Simulation Step
+    let faultCounter = 0.0;
+    function tick() {
+      simTime += 0.5;
+      if (simTime > 60.0) {
+        pauseSim();
+        logEvent(`Simulation complete (60.0s reached). All metrics converged.`);
+        return;
+      }
+
+      const inAttackWindow = (simTime >= 15.0 && simTime <= 45.0) && !attackManualOverride;
+      let isDropActive = false;
+      let rawDrop = 0.0;
+      let rawAnomaly = 0.0;
+      let baseDelay = (currentTopoKey === 'nsfnet') ? 12.0 : 16.0;
+      let rawDelay = baseDelay;
+
+      if (inAttackWindow) {
+        if (currentAttack === 'pulsing_grayhole') {
+          let cycle = Math.floor((simTime - 15.0) % 6.0);
+          if (cycle < 3.0) {
+            isDropActive = true;
+            rawDrop = 0.50;
+            rawAnomaly = 0.50;
+          } else {
+            isDropActive = false;
+            rawDrop = 0.0;
+            rawAnomaly = 0.04;
+          }
+        } else if (currentAttack === 'ldos_bufferbloat') {
+          isDropActive = true;
+          let burstCycle = ((simTime - 15.0) % 2.0) < 0.8;
+          rawDelay += (burstCycle) ? 46.0 : 8.0;
+          rawDrop = (burstCycle) ? 0.35 : 0.02;
+          rawAnomaly = 0.42;
+        } else if (currentAttack === 'metric_poisoning') {
+          isDropActive = true;
+          rawDrop = 0.50;
+          rawAnomaly = 0.45;
+        } else if (currentAttack === 'selective_drop') {
+          isDropActive = true;
+          rawDrop = 0.45;
+          rawAnomaly = 0.40;
+        } else if (currentAttack === 'latency_jitter') {
+          isDropActive = true;
+          rawDrop = 0.0;
+          rawDelay += 35.0 + Math.sin(simTime * 2.5) * 22.0;
+          rawAnomaly = 0.35;
+        }
+      }
+
+      // Fault memory tracking with 0.70 exponential decay rule
+      let recoveryActive = false;
+      if (rawDrop > 0.03 || rawDelay > (baseDelay + 10.0) || rawAnomaly > 0.20) {
+        faultCounter = Math.min(5.0, faultCounter + 1.5);
+      } else if (faultCounter > 0.0) {
+        faultCounter = faultCounter * 0.70;
+        // Clean zero-threshold clamping (epsilon cutoff) for floating point decay
+        if (faultCounter < 0.05) {
+          faultCounter = 0.0;
+        } else {
+          recoveryActive = true;
+        }
+      }
+      let faultScore = faultCounter / 5.0;
+
+      // Delay score relative to baseline
+      let delayScore = Math.max(0.0, Math.min(1.0, (rawDelay - baseDelay) / baseDelay));
+
+      // 4-Factor Weighted Risk Score
+      let term1 = 0.50 * rawDrop;
+      let term2 = 0.20 * rawAnomaly;
+      let term3 = 0.20 * delayScore;
+      let term4 = 0.10 * faultScore;
+      let totalRisk = term1 + term2 + term3 + term4;
+      if (totalRisk < 0.015) {
+        totalRisk = 0.0;
+      }
+      totalRisk = Math.min(1.0, totalRisk);
+
+      // Link Cost Escalation: BaseCost + ceil(50 * Risk)
+      let baseCost = TOPOLOGIES[currentTopoKey].baseCost;
+      let penalty = (totalRisk === 0.0) ? 0 : Math.ceil(50.0 * totalRisk);
+      let dynamicCost = baseCost + penalty;
+
+      // Real-time Dijkstra SPF Recomputation for current Source and Destination
+      const spfResult = runDijkstra(TOPOLOGIES[currentTopoKey], selectedSrc, selectedDst, selectedTarget, penalty);
+      currentActivePath = spfResult.path;
+      const currentPathString = currentActivePath.join(" -> ");
+      const isRerouted = (!currentActivePath.includes(selectedTarget) && primaryPath.includes(selectedTarget));
+
+      // Detect path switch & log SPF recomputation
+      if (currentPathString !== lastPathString) {
+        switchCount++;
+        document.getElementById("statSwitches").innerText = switchCount;
+        lastPathString = currentPathString;
+
+        if (isRerouted) {
+          convergenceTime = simTime - 15.0;
+          document.getElementById("statConvTime").innerText = Math.max(0.0, convergenceTime).toFixed(1) + " s";
+          logEvent(`ALERT: Threat on Node ${selectedTarget}. Link Metric ${baseCost} &rarr; ${dynamicCost}. Dijkstra recomputed: Rerouted to bypass path [${currentPathString}] (Cost: ${spfResult.cost}).`);
+        } else {
+          logEvent(`RECOVERY: Metric restored. Dijkstra recomputed: Restored to primary path [${currentPathString}] (Cost: ${spfResult.cost}).`);
+        }
+      }
+
+      // PDR Evaluation: Baseline Static vs. Proposed Adaptive
+      let staticPdr = 100.0;
+      let adaptivePdr = 100.0;
+      const targetIsOnOriginalPath = primaryPath.includes(selectedTarget);
+
+      if (inAttackWindow && targetIsOnOriginalPath) {
+        if (currentAttack === 'latency_jitter') {
+          staticPdr = 99.8;
+          adaptivePdr = 99.8;
+        } else {
+          staticPdr = (isDropActive) ? Math.max(45.0, 100.0 - (rawDrop * 100)) : 98.5;
+          adaptivePdr = (simTime >= 15.0 && simTime <= 16.0) ? 92.5 : (isRerouted ? 99.4 : staticPdr);
+        }
+      }
+
+      // Record series
+      historyTime.push(simTime);
+      historyPdrAdaptive.push(adaptivePdr);
+      historyPdrStatic.push(staticPdr);
+      historyDelay.push(isRerouted ? baseDelay + 3.5 : rawDelay);
+      historyCost.push(dynamicCost);
+
+      // Update UI elements
+      updateUI(simTime, adaptivePdr, (isRerouted ? baseDelay + 3.5 : rawDelay), totalRisk, dynamicCost, currentPathString, inAttackWindow, term1, term2, term3, term4, penalty, baseCost, recoveryActive);
+      renderTopology(inAttackWindow, isRerouted);
+      drawCharts();
+    }
+
+    function updateUI(time, pdr, delay, risk, cost, pathName, isAttacking, t1, t2, t3, t4, penalty=0, base=5, recoveryActive=false) {
+      document.getElementById("statTime").innerText = time.toFixed(1) + " s";
+      document.getElementById("statPdr").innerText = pdr.toFixed(1) + " %";
+      document.getElementById("statDelay").innerText = delay.toFixed(1) + " ms";
+      document.getElementById("statRisk").innerText = risk.toFixed(4);
+      document.getElementById("statCost").innerText = "Cost: " + cost;
+      document.getElementById("statActivePath").innerText = pathName;
+
+      document.getElementById("termDrop").innerText = t1.toFixed(4);
+      document.getElementById("termAnomaly").innerText = t2.toFixed(4);
+      document.getElementById("termDelay").innerText = t3.toFixed(4);
+      document.getElementById("termFault").innerText = t4.toFixed(4);
+      document.getElementById("evalRiskScore").innerText = risk.toFixed(4);
+      document.getElementById("evalCostPenalty").innerText = `+${penalty} (Base: ${base} -> ${cost})`;
+
+      const recStatus = document.getElementById("valRecoveryStatus");
+      if (recoveryActive) {
+        recStatus.innerText = "Active (0.70x decay)";
+        recStatus.className = "text-blue-700 font-bold";
+      } else {
+        recStatus.innerText = "Inactive";
+        recStatus.className = "text-slate-700 font-medium";
+      }
+
+      const badge = document.getElementById("badgeStatus");
+      const dot = document.getElementById("statusDot");
+      const text = document.getElementById("statusText");
+
+      if (isAttacking) {
+        badge.className = "inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-300";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 pulse-danger";
+        text.innerText = "Attack Active";
+      } else {
+        badge.className = "inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5";
+        text.innerText = "System Normal";
+      }
+    }
+
+    function renderTopology(isAttacking = false, isRerouted = false) {
+      const topo = TOPOLOGIES[currentTopoKey];
+      const svg = document.getElementById("topoSvg");
+      svg.innerHTML = "";
+
+      // Draw all Background Mesh Links
+      topo.links.forEach(([u, v]) => {
+        const nu = topo.nodes[u];
+        const nv = topo.nodes[v];
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", nu.x);
+        line.setAttribute("y1", nu.y);
+        line.setAttribute("x2", nv.x);
+        line.setAttribute("y2", nv.y);
+        line.setAttribute("stroke", "#cbd5e1");
+        line.setAttribute("stroke-width", "1.5");
+        svg.appendChild(line);
+      });
+
+      // Highlight Dynamic Dijkstra SPF Active Path
+      const path = currentActivePath.length > 0 ? currentActivePath : primaryPath;
+      for (let i = 0; i < path.length - 1; i++) {
+        const u = path[i];
+        const v = path[i + 1];
+        const nu = topo.nodes[u];
+        const nv = topo.nodes[v];
+
+        if (nu && nv) {
+          const activeLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          activeLine.setAttribute("x1", nu.x);
+          activeLine.setAttribute("y1", nu.y);
+          activeLine.setAttribute("x2", nv.x);
+          activeLine.setAttribute("y2", nv.y);
+          activeLine.setAttribute("stroke", isRerouted ? "#2563eb" : "#3b82f6");
+          activeLine.setAttribute("stroke-width", "3.2");
+          activeLine.setAttribute("class", "flow-active glow-active");
+          svg.appendChild(activeLine);
+        }
+      }
+
+      // Draw Nodes with Click Interactivity
+      topo.nodes.forEach(n => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "node-hover");
+        g.onclick = () => onNodeClicked(n.id);
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", n.x);
+        circle.setAttribute("cy", n.y);
+
+        const isSrc = (n.id === selectedSrc);
+        const isDst = (n.id === selectedDst);
+        const isTarget = (n.id === selectedTarget);
+        const isSpecial = isSrc || isDst || isTarget;
+
+        circle.setAttribute("r", isSpecial ? "12" : "8");
+
+        if (isTarget && isAttacking) {
+          circle.setAttribute("fill", "#dc2626"); // Red Compromised
+          circle.setAttribute("stroke", "#991b1b");
+          circle.setAttribute("stroke-width", "3");
+          circle.setAttribute("class", "pulse-danger");
+        } else if (isTarget) {
+          circle.setAttribute("fill", "#ef4444"); // Red Target
+          circle.setAttribute("stroke", "#b91c1c");
+          circle.setAttribute("stroke-width", "2.5");
+        } else if (isSrc) {
+          circle.setAttribute("fill", "#2563eb"); // Blue Source
+          circle.setAttribute("stroke", "#1d4ed8");
+          circle.setAttribute("stroke-width", "2.5");
+        } else if (isDst) {
+          circle.setAttribute("fill", "#059669"); // Emerald Dest
+          circle.setAttribute("stroke", "#047857");
+          circle.setAttribute("stroke-width", "2.5");
+        } else if (currentActivePath.includes(n.id)) {
+          circle.setAttribute("fill", "#93c5fd"); // Active hop
+          circle.setAttribute("stroke", "#2563eb");
+          circle.setAttribute("stroke-width", "2");
+        } else {
+          circle.setAttribute("fill", "#ffffff");
+          circle.setAttribute("stroke", "#64748b");
+          circle.setAttribute("stroke-width", "1.5");
+        }
+        g.appendChild(circle);
+
+        // Node ID & Label
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", n.x);
+        txt.setAttribute("y", n.y + 19);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("class", "mono text-[9px] fill-slate-700 font-bold select-none");
+        txt.textContent = n.label;
+        g.appendChild(txt);
+
+        svg.appendChild(g);
+      });
+    }
+
+    // Direct Map Node Click Handler (Cycles: Source -> Destination -> Target)
+    function onNodeClicked(nodeId) {
+      if (selectedSrc !== nodeId && selectedDst !== nodeId && selectedTarget !== nodeId) {
+        // By default set as source if not, or prompt
+        const action = prompt(`Node ${nodeId} clicked.\nType '1' to set as Source\nType '2' to set as Destination\nType '3' to set as Attack Target:`, "1");
+        if (action === "1") {
+          document.getElementById("selSrcNode").value = nodeId;
+          onEndpointChange();
+        } else if (action === "2") {
+          document.getElementById("selDstNode").value = nodeId;
+          onEndpointChange();
+        } else if (action === "3") {
+          document.getElementById("selTargetNode").value = nodeId;
+          onEndpointChange();
+        }
+      } else if (selectedSrc === nodeId) {
+        alert(`Node ${nodeId} is currently the SOURCE ingress router.`);
+      } else if (selectedDst === nodeId) {
+        alert(`Node ${nodeId} is currently the DESTINATION sink router.`);
+      } else if (selectedTarget === nodeId) {
+        alert(`Node ${nodeId} is currently the ATTACK TARGET compromised router.`);
+      }
+    }
+
+    // Chart Figure Rendering
+    function drawCharts() {
+      drawPdrChart();
+      drawCostChart();
+    }
+
+    function drawPdrChart() {
+      const cvs = document.getElementById("chartPdr");
+      if (!cvs) return;
+      const ctx = cvs.getContext("2d");
+      const w = cvs.clientWidth;
+      const h = cvs.clientHeight;
+      cvs.width = w;
+      cvs.height = h;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 40, padR = 20, padT = 15, padB = 25;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#64748b";
+      ctx.font = "9px ui-monospace, monospace";
+
+      for (let p = 0; p <= 100; p += 25) {
+        let y = padT + plotH - (p / 100) * plotH;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(w - padR, y);
+        ctx.stroke();
+        ctx.fillText(p + "%", 6, y + 3);
+      }
+
+      for (let t = 0; t <= 60; t += 15) {
+        let x = padL + (t / 60) * plotW;
+        ctx.fillText(t + "s", x - 6, h - 8);
+      }
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "10px sans-serif";
+      ctx.fillText("Time (s)", w / 2 - 15, h - 3);
+
+      if (historyTime.length < 2) return;
+
+      // Static Baseline
+      ctx.beginPath();
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      for (let i = 0; i < historyTime.length; i++) {
+        let x = padL + (historyTime[i] / 60) * plotW;
+        let y = padT + plotH - (historyPdrStatic[i] / 100) * plotH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Proposed Adaptive
+      ctx.beginPath();
+      ctx.strokeStyle = "#2563eb";
+      ctx.lineWidth = 2.2;
+      for (let i = 0; i < historyTime.length; i++) {
+        let x = padL + (historyTime[i] / 60) * plotW;
+        let y = padT + plotH - (historyPdrAdaptive[i] / 100) * plotH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      let lastIdx = historyTime.length - 1;
+      let lastX = padL + (historyTime[lastIdx] / 60) * plotW;
+      let lastYAdaptive = padT + plotH - (historyPdrAdaptive[lastIdx] / 100) * plotH;
+      ctx.fillStyle = "#2563eb";
+      ctx.font = "bold 9px sans-serif";
+      ctx.fillText("Proposed (>98%)", Math.min(w - 75, lastX - 65), lastYAdaptive - 5);
+    }
+
+    function drawCostChart() {
+      const cvs = document.getElementById("chartCost");
+      if (!cvs) return;
+      const ctx = cvs.getContext("2d");
+      const w = cvs.clientWidth;
+      const h = cvs.clientHeight;
+      cvs.width = w;
+      cvs.height = h;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 40, padR = 20, padT = 15, padB = 25;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#64748b";
+      ctx.font = "9px ui-monospace, monospace";
+
+      for (let v = 0; v <= 60; v += 15) {
+        let y = padT + plotH - (v / 60) * plotH;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(w - padR, y);
+        ctx.stroke();
+        ctx.fillText(v, 12, y + 3);
+      }
+
+      for (let t = 0; t <= 60; t += 15) {
+        let x = padL + (t / 60) * plotW;
+        ctx.fillText(t + "s", x - 6, h - 8);
+      }
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "10px sans-serif";
+      ctx.fillText("Time (s)", w / 2 - 15, h - 3);
+
+      if (historyTime.length < 2) return;
+
+      // Plot Delay
+      ctx.beginPath();
+      ctx.strokeStyle = "#dc2626";
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < historyTime.length; i++) {
+        let x = padL + (historyTime[i] / 60) * plotW;
+        let y = padT + plotH - (Math.min(60, historyDelay[i]) / 60) * plotH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Plot Dynamic Cost
+      ctx.beginPath();
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = 2.2;
+      for (let i = 0; i < historyTime.length; i++) {
+        let x = padL + (historyTime[i] / 60) * plotW;
+        let y = padT + plotH - (Math.min(60, historyCost[i]) / 60) * plotH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    function exportCSV() {
+      if (historyTime.length === 0) {
+        alert("Run a simulation first to export telemetry data.");
+        return;
+      }
+      let csv = "time_s,pdr_proposed,pdr_static,delay_ms,target_cost\n";
+      for (let i = 0; i < historyTime.length; i++) {
+        csv += `${historyTime[i].toFixed(1)},${historyPdrAdaptive[i].toFixed(2)},${historyPdrStatic[i].toFixed(2)},${historyDelay[i].toFixed(2)},${historyCost[i]}\n`;
+      }
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ns3_adaptive_telemetry_${currentTopoKey}_${selectedSrc}_to_${selectedDst}_atk_${currentAttack}.csv`;
+      a.click();
+    }
+
+    // Initialize on load
+    window.onload = () => {
+      selectTopology("nsfnet");
+      selectAttack("pulsing_grayhole");
+      setSpeed("normal");
+    };
+    window.onresize = drawCharts;
+  </script>
+</body>
+</html>

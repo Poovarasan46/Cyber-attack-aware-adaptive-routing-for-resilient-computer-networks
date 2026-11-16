@@ -1,0 +1,10 @@
+# Cyber-Attack-Aware Adaptive Routing Dependencies
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+websockets>=11.0.3
+jinja2>=3.1.2
+reportlab>=4.0.4
+pandas>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+requests>=2.31.0

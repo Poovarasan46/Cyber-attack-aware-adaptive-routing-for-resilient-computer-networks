@@ -1,150 +1,281 @@
-# 🛡️ Cyber-Attack Aware Adaptive Routing for Resilient Computer Networks
+<div align="center">
 
-> An autonomic, closed-loop discrete-event network resilience framework implemented in **ns-3 (Network Simulator 3)** that detects adversarial intermediate node degradation in real time and dynamically recalculates Dijkstra link metrics to maintain high-availability data delivery.
+# 🛡️ Cyber-Attack-Aware Adaptive Routing for Resilient Computer Networks
 
----
+**Autonomous Threat-Aware Telemetry, Dynamic Dijkstra Cost Inflation, and Sub-Second Rerouting for Next-Generation Resilient Network Topologies**
 
-## 📖 1. Project Information & Theoretical Background
-
-### 1.1 Problem Statement
-Conventional Interior Gateway Routing Protocols (e.g., OSPF, IS-IS) rely on static metric formulations (typically based on static link bandwidth or propagation delay). In modern threat landscapes:
-* **Grayhole & Selective-Forwarding Attacks:** Adversarial routers silently drop a fraction of data packets while keeping physical link states `UP` and standard Hello/Keepalive exchanges active.
-* **Failure of Static Dijkstra:** Because physical topology changes are absent, traditional shortest path first (SPF) algorithms remain locked on degraded paths, causing severe packet loss and service degradation without triggering conventional link-failover mechanisms.
-
-### 1.2 Proposed Solution
-This project introduces a **Closed-Loop Adaptive Security Routing Engine** that continuously samples flow-level metrics, computes a 4-dimensional risk score, and programmatically perturbs link routing costs. When risk metrics exceed dynamic thresholds, the engine invokes global routing table recomputation (`Ipv4GlobalRoutingHelper`), seamlessly shifting active flows to resilient alternate paths in sub-second timeframes.
+[![ns-3](https://img.shields.io/badge/ns--3-v3.43-blue?logo=c%2B%2B&logoColor=white)](https://www.nsnam.org/)
+[![C++17](https://img.shields.io/badge/Standard-C%2B%2B17-00599C?logo=c%2B%2B)](https://isocpp.org/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/Dashboard-FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Research Report](https://img.shields.io/badge/Documentation-Research%20Paper%20(PDF)-red?logo=adobeacrobatreader&logoColor=white)](docs/Cyber_Attack_Aware_Adaptive_Routing_Report.pdf)
 
 ---
 
-### 1.3 Key Features & Mathematical Formulation
-
-#### 🧮 4-Factor Weighted Risk Scoring Model
-The monitoring engine samples flow states at 0.5-second periodic intervals using ns-3's `FlowMonitor` and evaluates path health according to:
-
-$$\text{RiskScore}(t) = (w_1 \cdot \text{DropRate}) + (w_2 \cdot \text{AnomalyScore}) + (w_3 \cdot \text{DelayScore}) + (w_4 \cdot \text{FaultPenalty})$$
-
-* **Weight Distribution:**
-  * $w_1 = 0.50$ (Packet Drop Rate Weight)
-  * $w_2 = 0.20$ (Traffic Pattern Anomaly Weight)
-  * $w_3 = 0.20$ (End-to-End Latency Anomaly Weight)
-  * $w_4 = 0.10$ (Historical Fault Penalty Weight)
-
-#### ⚙️ Dynamic Link Cost Transformation
-When risk is detected on link $i$, its operational routing metric is dynamically adjusted:
-
-$$\text{Cost}_i(t) = \text{BaseCost}_i + \left\lceil \Delta \times \text{RiskScore}(t) \right\rceil$$
-
-* Where $\Delta = 50.0$ represents the penalty sensitivity scaling factor.
-* When the attack ceases, exponential metric decay is applied ($\times 0.70$ decay factor per interval) to smoothly restore optimal low-cost primary paths once stability is re-established.
+[Key Highlights](#-key-highlights) •
+[Architecture](#-system-architecture) •
+[Mathematical Formulation](#-mathematical-model) •
+[Attack Vectors](#-threat-and-attack-vectors) •
+[Benchmark Results](#-empirical-benchmarks) •
+[Web Dashboard](#-interactive-telemetry-dashboard) •
+[Getting Started](#-getting-started) •
+[Citation](#-citation)
 
 ---
 
-### 1.4 Benchmark & Experimental Results
+</div>
 
-Evaluated across continuous **60-second simulation trials** with continuous **819.2 kbps UDP CBR traffic** under an active **40% malicious packet-drop attack** active from $t = 15.0\text{s}$ to $t = 40.0\text{s}$:
+## 📌 Executive Summary
 
-| Metric Parameter | Baseline Static Dijkstra | Proposed Cyber-Aware Adaptive Routing | Improvement / Impact |
+Modern enterprise and critical infrastructure backbones rely on static shortest-path routing protocols (e.g., OSPF, IS-IS). When targeted by sophisticated cyber-attacks—such as **pulsing grayholes**, **Low-Rate DoS (LDoS) inducing bufferbloat**, and **malicious metric poisoning**—traditional routing algorithms fail to adapt, continuing to steer mission-critical traffic into blackhole nodes and congested bottlenecks.
+
+This repository presents **Cyber-Attack-Aware Adaptive Routing**, a framework built on the **ns-3 (v3.43)** network simulator. It continuously calculates a **4-Factor Composite Threat Risk Score** using real-time telemetry, dynamically inflates the metric cost of compromised links, and triggers an autonomous Dijkstra recalculation to steer traffic around compromised nodes in **under 1.0 second**, restoring packet delivery from **60.0% to 99.81%**.
+
+---
+
+## 🚀 Key Highlights
+
+<div align="center">
+
+| Metric | Static Dijkstra (Baseline) | Proposed Adaptive Routing | Realized Gain |
 | :--- | :---: | :---: | :---: |
-| **Minimum PDR during Attack** | **74.32%** | **99.60% – 99.80%** | **+25.48% higher packet delivery** |
-| **Total Packet Loss** | Up to **25.68%** | **< 0.40%** | **> 98% reduction in dropped packets** |
-| **Path Convergence Time** | N/A (Locked in failure) | **0.85 seconds (< 1.0s)** | **Sub-second autonomic recovery** |
-| **End-to-End Delay (Attacked Path)** | 14.00 ms – 17.37 ms | 20.00 ms – 21.55 ms (Safe Reroute) | Stable delivery across backup path |
-| **Post-Attack Restoration** | No dynamic awareness | Automatic restoration to Path A | Full state recovery |
+| **Minimum PDR Under Attack** | **60.00%** | **99.81%** | **+39.81% (Near-lossless)** |
+| **Threat Convergence Time** | N/A (Persistent Drop) | **< 1.00 s** | **Sub-second recovery** |
+| **Route Flapping & False Positives** | N/A | **0.00%** | **Robust to pure congestion** |
+| **Post-Attack Auto-Restoration** | Manual Operator Intervention | **Autonomous** | **Exponential Decay Return** |
+
+</div>
+
+- **Autonomous Closed-Loop Mitigation**: Detects data-plane anomalies without relying on manual operator intervention or static access-control lists (ACLs).
+- **Multi-Objective Optimized Weighting**: Pareto-optimal weights ($w_1=0.50, w_2=0.20, w_3=0.20, w_4=0.10$) obtained via exhaustive multi-seed grid search.
+- **Backbone Topology Validation**: Validated on realistic ISP topologies including **NSFNet (14 nodes, 21 links)**, **GEANT**, and **Diamond Multipath**.
+- **Real-Time Telemetry Web Console**: Integrated **FastAPI & WebSocket dashboard** providing live topology inspection, traffic charts, and PDF report export.
 
 ---
 
-## 🏛️ 2. System Architecture
+## 📊 Performance Benchmarks
+
+### 1. Dynamic Routing Adaptation vs. Static Dijkstra (60s Attack Window)
+During a 40% drop cyber-attack active from $t=15\text{s}$ to $t=40\text{s}$, the proposed adaptive protocol instantly detects the threat, inflates Path A cost, and diverts flows to Path B, preserving near-perfect Packet Delivery Ratio (PDR).
+
+<div align="center">
+  <img src="assets/research_comparison_results.png" alt="Research Comparison Results" width="850">
+</div>
+
+### 2. Multi-Objective Parameter Optimization & Heatmap
+Exhaustive grid search across the 4-factor risk weight simplex ($w_1 + w_2 + w_3 + w_4 = 1.0$) demonstrates high resilience against false positives while maximizing PDR under stress.
+
+<div align="center">
+  <img src="assets/weights_optimization_heatmap.png" alt="Weights Optimization Heatmap" width="850">
+</div>
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    subgraph DataPlane["📡 Data Plane (ns-3 Network Topology)"]
+        Src["Source Node"] -->|"UDP Flows (800 kbps)"| R1["Ingress Router (R1)"]
+        R1 -->|"Primary Path"| R2["Target Router (R2)\n[Compromised / Under Attack]"]
+        R1 -.->|"Alternate Path (Diverted)"| R3["Resilient Router (R3)"]
+        R2 --> R4["Egress Router (R4)"]
+        R3 --> R4
+        R4 --> Dst["Destination Node"]
+    end
+
+    subgraph Telemetry["🔍 FlowMonitor Telemetry Engine (0.5s Epoch)"]
+        PDR["Packet Drop Rate (ΔLost / ΔTx)"]
+        Delay["Latency Spike Score (Observed vs Baseline)"]
+        Anomaly["Throughput Deviation (|Obs - Exp| / Exp)"]
+        Fault["Dynamic Fault Counter (0.70 Recovery Decay)"]
+    end
+
+    subgraph ControlPlane["🧠 Cyber-Aware Routing Engine"]
+        Score["Compute 4-Factor Risk Score:\nRisk = w1·Drop + w2·Anomaly + w3·Delay + w4·Fault"]
+        CostCalc["Dynamic Metric Cost Inflation:\nCost(e) = BaseCost + ⌈Δ · Risk⌉"]
+        Dijkstra["Recompute Global Dijkstra Routing Tables"]
+    end
+
+    DataPlane -->|"Flow Stats"| Telemetry
+    Telemetry --> Score
+    Score --> CostCalc
+    CostCalc --> Dijkstra
+    Dijkstra -->|"Update Next-Hop"| DataPlane
+```
+
+---
+
+## 📐 Mathematical Model
+
+### 1. 4-Factor Composite Threat Risk Score
+The risk score $\mathcal{R}(v, t) \in [0.0, 1.0]$ for router $v$ at time step $t$ is formulated as:
+
+$$\mathcal{R}(v, t) = \operatorname{clamp}_{[0, 1]} \Big( w_1 \cdot \mathcal{S}_{\text{drop}}(t) + w_2 \cdot \mathcal{S}_{\text{anomaly}}(t) + w_3 \cdot \mathcal{S}_{\text{delay}}(t) + w_4 \cdot \mathcal{P}_{\text{fault}}(t) \Big)$$
+
+Where:
+- $\mathcal{S}_{\text{drop}}(t) = \frac{\Delta \text{Lost}}{\Delta \text{Tx}}$ (Packet loss ratio over sampling interval $\Delta t = 0.5\text{s}$)
+- $\mathcal{S}_{\text{delay}}(t) = \max\left(0, \frac{\overline{D}(t) - D_{\text{base}}}{D_{\text{base}}}\right)$ (Latency degradation ratio)
+- $\mathcal{S}_{\text{anomaly}}(t) = \frac{|\lambda_{\text{observed}} - \lambda_{\text{expected}}|}{\lambda_{\text{expected}}}$ (Throughput deviation)
+- $\mathcal{P}_{\text{fault}}(t) = \frac{F_t}{F_{\max}}$ (Normalized persistent fault penalty)
+
+### 2. Exponential Fault Recovery & Anti-Flapping Rule
+To prevent route flapping during transient anomalies, the fault counter $F_t$ updates according to:
+
+$$F_t = \begin{cases} \min(F_{\max}, F_{t-1} + 1.5), & \text{if } \mathcal{S}_{\text{drop}} > \tau_{\text{risk}} \lor \mathcal{S}_{\text{delay}} > 0.25 \\ F_{t-1} \times 0.70, & \text{on healthy recovery (decay)} \end{cases}$$
+
+### 3. Dynamic Link Metric Inflation
+When $\mathcal{R}(v, t) > 0$, the operational metric cost assigned to the interface link $e$ is inflated:
+
+$$\operatorname{Cost}(e) = \operatorname{BaseCost}(e) + \left\lceil \Delta_{\text{weight}} \cdot \mathcal{R}(v, t) \right\rceil$$
+
+Setting $\Delta_{\text{weight}} = 50.0$ guarantees that upon attack detection, the cost of the compromised path exceeds the alternate path's threshold, immediately triggering an autonomous Dijkstra re-convergence:
+
+$$\operatorname{Ipv4GlobalRoutingHelper::RecomputeRoutingTables}()$$
+
+---
+
+## 🎯 Threat and Attack Vectors
+
+The framework evaluates five real-world cyber-attack scenarios:
+
+| Attack Vector | Mechanism in Simulation | Impact on Static Routing | Adaptive Mitigation |
+| :--- | :--- | :--- | :--- |
+| **Pulsing Grayhole** | Periodic drops (30%–60%) with burst-rest cycles | 40% continuous packet loss | Immediate metric penalty triggering alternate path |
+| **LDoS / Bufferbloat** | Periodic high-rate micro-bursts inducing queue tail-drops | Severe jitter and buffer drops | High latency & loss scores trigger diversion |
+| **Metric Poisoning** | Malicious router advertises $\text{Cost}=1$ to sinkhole traffic | All flows hijacked and dropped | Real-time PDR monitoring overrides poisoned metric |
+| **Selective Drop** | Control packets (OSPF/Hello) pass 100%, data packets dropped | Protocol health checks fooled | End-to-end data telemetry identifies compromised node |
+| **Latency Jitter** | Random pseudorandom delays ($25\text{ms} - 75\text{ms}$) injected | Desynchronizes TCP / Realtime flows | Delay score triggers penalty diversion |
+
+---
+
+## 🖥️ Interactive Telemetry Dashboard
+
+An interactive real-time dashboard is included for live attack injection, weight tuning, and visual telemetry monitoring.
+
+```bash
+# Start the real-time FastAPI + WebSocket dashboard server
+uvicorn web_dashboard.server:app --host 0.0.0.0 --port 8000 --reload
+```
+Navigate to `http://localhost:8000` to access:
+- **Live Real-Time Topology Canvas**: View active and alternate path routing transitions in real time.
+- **Dynamic Parameter Sliders**: Adjust $w_1, w_2, w_3, w_4$ and $\Delta_{\text{weight}}$ on the fly.
+- **Automated Report Generation**: Click to generate formal research summary PDFs with ReportLab.
+- **Standalone Dashboard**: Open `dashboard.html` in any modern web browser without a backend.
+
+---
+
+## 📁 Repository Structure
 
 ```
-+-----------------------------------------------------------------------------------+
-|                        1. TELEMETRY & PRESENTATION LAYER                          |
-|  - Real-Time WebSocket Telemetry Server (FastAPI / Starlette / Uvicorn)           |
-|  - Interactive Dashboard UI (Jinja2 Templates / HTML5 Canvas / Chart.js)          |
-|  - Offline Matplotlib Sensitivity Analysis & Parameter Sweeps (plot_comparison.py)|
-+------------------------------------------^----------------------------------------+
-                                           | Telemetry Feed (0.5s sampling)
-+------------------------------------------v----------------------------------------+
-|                        2. ADAPTIVE CONTROL PLANE                                  |
-|  - Dynamic Link Cost Calculation: Cost_A = BaseCost_A + ceil(delta * RiskScore)   |
-|  - Global Routing Table Recomputation: Ipv4GlobalRoutingHelper::RecomputeTables()  |
-|  - Sub-Second Convergence & Hysteresis Smoothing Engine                           |
-+------------------------------------------^----------------------------------------+
-                                           | Computed Risk Vectors
-+------------------------------------------v----------------------------------------+
-|                        3. SECURITY MONITORING ENGINE                              |
-|  - ns-3 FlowMonitor & Ipv4FlowClassifier telemetry capture                       |
-|  - 4-Factor Anomaly & Packet Loss Scoring Processor                               |
-+------------------------------------------^----------------------------------------+
-                                           | Packet Telemetry
-+------------------------------------------v----------------------------------------+
-|                        4. DATA PLANE & NETWORK TOPOLOGY                           |
-|  - 6-Node Dual-Path Diamond Topology (PointToPoint 10 Mbps Links)                  |
-|  - Continuous CBR UDP Application Layer (1024-byte packets @ 819.2 kbps)          |
-|  - RateErrorModel Adversarial Injection Engine (Simulated 40% Drop Attack on R2)  |
-+-----------------------------------------------------------------------------------+
+├── src/
+│   └── secure-adaptive-routing.cc    # Core ns-3 C++ implementation & attack models
+├── scripts/
+│   ├── grid_search_weights.py        # Multi-objective parameter grid search optimizer
+│   └── plot_comparison.py            # Automated simulation & 3-panel plotting pipeline
+├── web_dashboard/
+│   ├── server.py                     # FastAPI backend with WebSockets & PDF reporting
+│   ├── templates/
+│   │   └── index.html                # Modern Tailwind + Chart.js web interface
+│   └── __init__.py
+├── docs/
+│   └── Cyber_Attack_Aware_Adaptive_Routing_Report.pdf # Comprehensive research report
+├── assets/
+│   ├── research_comparison_results.png  # 60-second comparative evaluation plot
+│   ├── weights_optimization_heatmap.png # Multi-seed Pareto optimization heatmap
+│   └── sensitivity_analysis.png         # Sensitivity analysis curves
+├── data/
+│   ├── grid_search_results.csv       # Multi-seed grid search dataset
+│   ├── weight_candidates_ranked.csv  # Ranked Pareto candidate weights
+│   ├── benchmark_sweep_results.csv   # Topology performance sweep logs
+│   ├── static_metrics.csv            # Baseline static routing telemetry trace
+│   ├── adaptive_metrics.csv          # Proposed adaptive routing telemetry trace
+│   └── test_summary.csv              # Scenario summary metrics
+├── dashboard.html                    # Standalone client-side HTML dashboard
+├── requirements.txt                  # Python dependencies
+├── .gitignore                        # Git ignore rules for ns-3 & Python
+├── LICENSE                           # MIT License
+└── README.md                         # Project documentation
 ```
 
-### 2.1 Topology & Interface Specifications
+---
 
-```
-             [ 10.0.2.0/24 ]           [ 10.0.4.0/24 ]
-           +-----------------> Router R2 ----------------+
-           |                  (Path A: Primary)          |
-           |                   Base Cost = 5             |
-           |                  Delay = 5ms (10Mbps)       |
-           |                  [⚠️ Attack Window: 15-40s] |
-           |                  [ 40% Packet Drop Rate   ] |
-           |                                             v
-[ Source S ] --------> Router R1 -----------------------------> Router R4 --------> [ Destination D ]
- (Node 0)   10.0.1.0/24 (Node 1)                          (Node 4)   10.0.6.0/24  (Node 5)
- 10.0.1.1    (Access)   (Ingress)                         (Egress)    (Access)     10.0.6.2
-           |                                             ^
-           |                  [ 10.0.3.0/24 ]            |
-           +-----------------> Router R3 ----------------+
-                              (Path B: Backup)
-                               Base Cost = 8
-                              Delay = 8ms (10Mbps)
-                             [ 10.0.5.0/24 ]
+## 🛠️ Getting Started
+
+### Prerequisites
+
+- **Network Simulator**: [ns-3](https://www.nsnam.org/) version **3.43** (or 3.36+)
+- **Compiler**: GCC / G++ $\ge$ 11 with C++17 support
+- **Python**: Version 3.10+
+- **Build System**: CMake & Ninja
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/Poovarasan46/Cyber-attack-aware-adaptive-routing-for-resilient-computer-networks.git
+cd Cyber-attack-aware-adaptive-routing-for-resilient-computer-networks
 ```
 
-* **Node 0 (Traffic Source):** IP `10.0.1.1` — Hosts `OnOffApplication` generating constant bit rate UDP traffic.
-* **Node 1 (Ingress Router R1):** Dynamically calculates cost metrics between interface to R2 and interface to R3.
-* **Node 2 (Primary Router R2 - Path A):** Propagation delay $5\text{ ms}$, Base Metric $= 5$. Houses the adversarial `RateErrorModel`.
-* **Node 3 (Backup Router R3 - Path B):** Propagation delay $8\text{ ms}$, Base Metric $= 8$. Safe alternate route.
-* **Node 4 (Egress Router R4):** Merges incoming traffic streams and forwards toward destination.
-* **Node 5 (Destination Sink D):** IP `10.0.6.2` — Hosts `PacketSink` verifying packet sequence, delay, and delivery.
+### 2. Install Python Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Deploy and Run with ns-3
+
+Copy the C++ simulation file into your ns-3 installation's `scratch/` directory:
+
+```bash
+# Assuming your ns-3 directory is at ~/ns-allinone-3.43/ns-3.43
+cp src/secure-adaptive-routing.cc ~/ns-allinone-3.43/ns-3.43/scratch/
+
+# Navigate to your ns-3 directory and build
+cd ~/ns-allinone-3.43/ns-3.43
+./ns3 build
+
+# Run the Proposed Adaptive Routing Simulation
+./ns3 run "scratch/secure-adaptive-routing --isAdaptive=true --topology=nsfnet --scenario=pulsing_grayhole --csvFile=adaptive_metrics.csv"
+
+# Run the Baseline Static Routing Simulation
+./ns3 run "scratch/secure-adaptive-routing --isAdaptive=false --topology=nsfnet --scenario=pulsing_grayhole --csvFile=static_metrics.csv"
+```
+
+### 4. Generate Comparative Analysis Plots
+```bash
+# Return to this repository directory and generate 3-panel comparative figures
+python scripts/plot_comparison.py
+```
+
+### 5. Run Parameter Grid Search Optimization
+```bash
+python scripts/grid_search_weights.py --topology=nsfnet --seeds=5 --workers=4
+```
 
 ---
 
-## 🖼️ 3. Architecture & Dashboard Image Section
+## 📖 Citation
 
-### 3.1 High-Definition System Architecture
-> Visual overview of the multi-layer control loop, security monitoring engine, and the 6-node diamond data plane.
+If you find this research implementation or framework useful in your work, please cite:
 
-<img width="1376" height="768" alt="architecure" src="https://github.com/user-attachments/assets/7b40c2ec-59f5-4793-8653-52a002cd8d27" />
-
----
-
-### 3.2 Real-Time Telemetry Web Dashboard
-> Live web-based monitoring console streaming real-time network health metrics, instantaneous Packet Delivery Ratio (PDR), latency trends, and automated path failover events.
-
-<img width="1896" height="903" alt="screen1" src="https://github.com/user-attachments/assets/627fb137-492e-4280-8a96-ba354ab09d3a" />
-<img width="1895" height="908" alt="screen2" src="https://github.com/user-attachments/assets/6df8a298-cac2-4673-8ac7-1927d4c7f70c" />
-<img width="1901" height="907" alt="screen3" src="https://github.com/user-attachments/assets/13429c41-653a-412f-9108-8b9697e3cfd5" />
-
----
-
-### 3.3 Empirical Benchmark Comparison Charts
-> 60-second comparative simulation results showing Packet Delivery Ratio (PDR) stability, latency transitions, and dynamic link metric adaptation during the active attack window ($t=15\text{s}–40\text{s}$).
-
-<img width="1807" height="885" alt="screen4" src="https://github.com/user-attachments/assets/bb22055b-6efa-4838-b4f7-7abad1f4ea37" />
+```bibtex
+@article{poovarasan2026adaptive,
+  title={Cyber-Attack-Aware Adaptive Routing for Resilient Computer Networks},
+  author={Poovarasan},
+  year={2026},
+  publisher={GitHub},
+  journal={GitHub Repository},
+  howpublished={\url{https://github.com/Poovarasan46/Cyber-attack-aware-adaptive-routing-for-resilient-computer-networks}}
+}
+```
 
 ---
 
-## 🛠️ 4. Tech Stack & Tools
+## 📜 License
 
-* **Core Simulator:** ns-3 (v3.43) / C++17
-* **Traffic & Telemetry:** `ns3::FlowMonitor`, `ns3::OnOffApplication`, `ns3::PacketSink`, `ns3::RateErrorModel`
-* **Real-Time Backend:** Python 3.10+, FastAPI, Starlette WebSockets, Uvicorn
-* **Data Science & Plotting:** Pandas, NumPy, Matplotlib
-* **Front-End Telemetry UI:** HTML5, CSS3, JavaScript, Chart.js
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for resilient network systems and cybersecurity research.</sub>
+</div>

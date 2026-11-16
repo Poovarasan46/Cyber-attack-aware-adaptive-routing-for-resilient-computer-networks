@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyber-attack aware adaptive routing | NS-3 discrete-event simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background-color: #f8fafc;
+      color: #0f172a;
+      font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .font-mono {
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    .fig-card {
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .fig-subcard {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+    }
+    /* Minimalist reroute line pulse */
+    @keyframes line-flow {
+      0% { stroke-dashoffset: 20; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .reroute-flow {
+      stroke-dasharray: 6, 4;
+      animation: line-flow 1.5s linear infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900">
+
+  <!-- Header Bar: Minimalist & Clean -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3.5 sticky top-0 z-40">
+    <div class="max-w-[1400px] mx-auto flex items-center justify-between">
+      <div>
+        <h1 class="text-base font-semibold text-slate-900 tracking-tight">Cyber-attack aware adaptive routing</h1>
+        <p class="text-xs text-slate-500">NS-3 discrete-event network simulation | Autonomous threat evasion</p>
+      </div>
+
+      <!-- Single Status Indicator and Time -->
+      <div class="flex items-center space-x-6">
+        <div class="flex items-center text-xs font-medium text-slate-600">
+          <span id="status-dot" class="inline-block w-2 h-2 rounded-full bg-slate-400 mr-2 transition-colors"></span>
+          <span id="status-text">Normal operation</span>
+        </div>
+
+        <div class="text-xs font-mono text-slate-500">
+          Time: <span id="sim-time" class="font-semibold text-slate-900">0.0s</span> / 60.0s
+        </div>
+
+        <a href="/api/generate-report" class="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 hover:border-blue-300 rounded px-2.5 py-1 transition bg-blue-50/50">
+          Download report (PDF)
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 p-6 max-w-[1400px] mx-auto w-full space-y-6">
+
+    <!-- Section 1: Provenance & Data Source Banner -->
+    <div class="fig-card p-4 text-xs text-slate-600 space-y-1.5">
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-slate-800">Data source and simulation provenance:</span>
+        <span class="font-mono text-[11px] text-slate-500">Simulator: ns-3.43 (discrete-event)</span>
+      </div>
+      <p class="text-slate-600">
+        This dashboard streams real-time discrete-event telemetry calibrated to ns-3.43 FlowMonitor traces.
+        Baseline shortest paths are computed via Dijkstra's algorithm. Link costs are dynamically adjusted based on observed loss, rate anomalies, delay, and fault counts.
+      </p>
+      <div class="flex flex-wrap items-center gap-4 pt-1 text-slate-500 font-mono text-[11px]">
+        <span>Source: <a href="/api/source-code" target="_blank" class="text-blue-600 hover:underline">scratch/secure-adaptive-routing.cc</a></span>
+        <span>Ranked weights: <a href="/api/download-ranked-csv" class="text-blue-600 hover:underline">weight_candidates_ranked.csv</a></span>
+        <span>Metrics trace: <a href="/api/download-csv?mode=adaptive" class="text-blue-600 hover:underline">adaptive_metrics.csv</a></span>
+      </div>
+    </div>
+
+    <!-- Section 2: Mathematical Model & Method Verification Panel -->
+    <div class="fig-card p-5 space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+        <h2 class="text-sm font-semibold text-slate-900">Mathematical risk and dynamic cost model</h2>
+        <span class="text-xs text-slate-500 font-mono">Parameters: w1=0.50, w2=0.20, w3=0.20, w4=0.10, delta=50</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <!-- Equations -->
+        <div class="fig-subcard p-3 space-y-2">
+          <div class="font-semibold text-slate-700">Model equations:</div>
+          <div class="font-mono text-slate-800 space-y-1 bg-white p-2.5 rounded border border-slate-200 text-[11.5px]">
+            <div>RiskScore = 0.50·Drop + 0.20·Anomaly + 0.20·Delay + 0.10·Fault</div>
+            <div>Cost(e) = BaseCost + ⌈50 × RiskScore⌉</div>
+            <div class="text-slate-600 text-[11px]">Recovery decay rule: Risk(t+1) = Risk(t) × 0.70</div>
+          </div>
+          <p class="text-slate-500 text-[11px]">
+            All 4 terms are clamped to [0, 1] before summation. Cost updates trigger Dijkstra shortest path recomputation.
+          </p>
+        </div>
+
+        <!-- Live Model Terms During Run -->
+        <div class="fig-subcard p-3 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-slate-700">Live term evaluation:</span>
+            <span id="decay-badge" class="text-[11px] font-mono text-slate-500">Recovery decay: Inactive</span>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 text-center font-mono text-xs">
+            <div class="bg-white p-2 rounded border border-slate-200">
+              <div class="text-[10px] text-slate-500">0.50·Drop</div>
+              <div id="term-drop" class="font-semibold text-slate-900 mt-0.5">0.0000</div>
+            </div>
+            <div class="bg-white p-2 rounded border border-slate-200">
+              <div class="text-[10px] text-slate-500">0.20·Anom</div>
+              <div id="term-anomaly" class="font-semibold text-slate-900 mt-0.5">0.0000</div>
+            </div>
+            <div class="bg-white p-2 rounded border border-slate-200">
+              <div class="text-[10px] text-slate-500">0.20·Delay</div>
+              <div id="term-delay" class="font-semibold text-slate-900 mt-0.5">0.0000</div>
+            </div>
+            <div class="bg-white p-2 rounded border border-slate-200">
+              <div class="text-[10px] text-slate-500">0.10·Fault</div>
+              <div id="term-fault" class="font-semibold text-slate-900 mt-0.5">0.0000</div>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center pt-1 font-mono text-xs border-t border-slate-200">
+            <div>Risk score: <strong id="risk-score-val" class="text-slate-900">0.0000</strong></div>
+            <div>Cost penalty: <strong id="cost-penalty-val" class="text-slate-900">+0</strong> (Base: <span id="base-cost-val">5</span> &rarr; <span id="total-cost-val" class="font-semibold text-blue-600">5</span>)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Topology and Control Panel -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: Controls (4 Cols) -->
+      <div class="lg:col-span-4 fig-card p-5 space-y-4">
+        <div class="border-b border-slate-200 pb-2">
+          <h2 class="text-sm font-semibold text-slate-900">Experiment controls</h2>
+          <p class="text-xs text-slate-500">Select scenario parameters and run the discrete-event model</p>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">Scenario</label>
+            <select id="scenarioPreset" onchange="onScenarioPresetChange()" class="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-800 text-xs focus:outline-none focus:border-blue-500">
+              <option value="standard">Standard attack (40% packet drop)</option>
+              <option value="weak_attack">Weak attack (8% packet drop)</option>
+              <option value="congestion">Congestion anomaly (0% drop, high delay)</option>
+              <option value="delay_anomaly">Delay anomaly (25% drop, severe latency)</option>
+              <option value="clean_run">Clean run (no attack)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-medium text-slate-700 mb-1">Target router</label>
+              <input type="text" id="targetRouterInput" value="R2" readonly class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 font-mono text-slate-700 text-xs font-semibold">
+            </div>
+            <div>
+              <label class="block font-medium text-slate-700 mb-1">Drop rate (%)</label>
+              <input type="number" id="dropRateInput" value="40" min="0" max="100" class="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-mono text-slate-800 text-xs">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-medium text-slate-700 mb-1">Attack start (s)</label>
+              <input type="number" id="attackStart" value="15" min="5" max="55" class="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-mono text-slate-800 text-xs">
+            </div>
+            <div>
+              <label class="block font-medium text-slate-700 mb-1">Attack end (s)</label>
+              <input type="number" id="attackEnd" value="40" min="10" max="58" class="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-mono text-slate-800 text-xs">
+            </div>
+          </div>
+        </div>
+
+        <!-- Single Canonical Action Buttons Row -->
+        <div class="pt-2 space-y-2">
+          <button onclick="triggerSimulation()" class="w-full py-2 px-3 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition">
+            Run simulation
+          </button>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="stopAttack()" class="py-1.5 px-3 rounded bg-white hover:bg-red-50 text-red-600 font-medium text-xs border border-red-300 transition">
+              Stop attack
+            </button>
+            <button onclick="resetSystem()" class="py-1.5 px-3 rounded bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs border border-slate-300 transition">
+              Reset
+            </button>
+          </div>
+
+          <div class="pt-1">
+            <a href="/api/download-csv?mode=adaptive" class="block text-center py-1.5 px-3 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs border border-slate-200 transition">
+              Export CSV metrics
+            </a>
+          </div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="pt-2 border-t border-slate-200">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-semibold text-slate-700">Event log:</span>
+            <button onclick="clearEventLog()" class="text-[11px] text-slate-400 hover:text-slate-600">Clear</button>
+          </div>
+          <div id="event-log-box" class="h-28 bg-slate-50 rounded p-2 font-mono text-[10.5px] overflow-y-auto border border-slate-200 text-slate-600 space-y-0.5">
+            <div>> Ready for execution.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Simplified Topology Canvas (8 Cols) -->
+      <div class="lg:col-span-8 fig-card p-5 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-900">Network topology</h2>
+            <p class="text-xs text-slate-500">Click any router node to designate the cyber attack target</p>
+          </div>
+
+          <!-- Minimalist Topology Switcher -->
+          <div class="flex items-center space-x-1 border border-slate-200 rounded p-0.5 text-xs">
+            <button id="btn-topo-diamond" onclick="switchTopology('diamond')" class="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-medium transition">
+              6-node diamond
+            </button>
+            <button id="btn-topo-nsfnet" onclick="switchTopology('nsfnet')" class="px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition">
+              14-node NSFNET
+            </button>
+          </div>
+        </div>
+
+        <!-- Topology Header Metadata -->
+        <div class="flex justify-between items-center text-xs text-slate-600 font-mono">
+          <div>Active path: <span id="active-path-label" class="font-semibold text-blue-600">Primary route (optimal)</span></div>
+          <div id="topo-delay-info" class="text-slate-500">Path A: 14 ms | Path B: 20 ms</div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="bg-white border border-slate-200 rounded p-4 flex items-center justify-center min-h-[210px]">
+
+          <!-- View 1: 6-Node Diamond Topology -->
+          <svg id="svg-diamond" viewBox="0 0 760 200" class="w-full h-auto select-none">
+            <!-- Path A Links: R1 -> R2 -> R4 -->
+            <line id="link-src-r1" x1="60" y1="100" x2="190" y2="100" stroke="#64748b" stroke-width="1.8" />
+            <line id="link-r1-r2" x1="190" y1="100" x2="380" y2="35" stroke="#64748b" stroke-width="1.8" />
+            <line id="link-r2-r4" x1="380" y1="35" x2="570" y2="100" stroke="#64748b" stroke-width="1.8" />
+            <line id="link-r4-dst" x1="570" y1="100" x2="700" y2="100" stroke="#64748b" stroke-width="1.8" />
+
+            <!-- Path B Links: R1 -> R3 -> R4 -->
+            <line id="link-r1-r3" x1="190" y1="100" x2="380" y2="165" stroke="#cbd5e1" stroke-width="1.8" />
+            <line id="link-r3-r4" x1="380" y1="165" x2="570" y2="100" stroke="#cbd5e1" stroke-width="1.8" />
+
+            <!-- Path Cost Labels -->
+            <text id="cost-label-a" x="275" y="55" fill="#64748b" font-size="11" font-family="IBM Plex Mono">Cost: 5</text>
+            <text id="cost-label-b" x="275" y="150" fill="#94a3b8" font-size="11" font-family="IBM Plex Mono">Cost: 8</text>
+
+            <!-- Node Circles -->
+            <g transform="translate(60, 100)">
+              <circle r="20" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text y="4" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">SRC</text>
+            </g>
+
+            <g transform="translate(190, 100)">
+              <circle r="20" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text y="4" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">R1</text>
+            </g>
+
+            <!-- R2 (Target) -->
+            <g id="node-r2" transform="translate(380, 35)" class="cursor-pointer" onclick="setTargetRouter('R2')">
+              <circle id="circle-r2" r="22" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-r2" y="4" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">R2</text>
+            </g>
+
+            <!-- R3 (Alternate) -->
+            <g id="node-r3" transform="translate(380, 165)" class="cursor-pointer" onclick="setTargetRouter('R3')">
+              <circle id="circle-r3" r="22" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+              <text id="text-r3" y="4" text-anchor="middle" font-size="12" font-weight="700" fill="#64748b">R3</text>
+            </g>
+
+            <g transform="translate(570, 100)">
+              <circle r="20" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text y="4" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">R4</text>
+            </g>
+
+            <g transform="translate(700, 100)">
+              <circle r="20" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text y="4" text-anchor="middle" font-size="11" font-weight="600" fill="#0f172a">DST</text>
+            </g>
+          </svg>
+
+          <!-- View 2: 14-Node NSFNET Mesh Topology -->
+          <svg id="svg-nsfnet" viewBox="0 0 920 230" class="w-full h-auto select-none hidden">
+            <!-- Primary Northern Route Links: N1 -> N2 -> N3 -> N4 -> N5 -> N6 -> N7 -> N8 -->
+            <line id="nsf-link-n1-n2" x1="60" y1="75" x2="180" y2="55" stroke="#64748b" stroke-width="1.8" />
+            <line id="nsf-link-n2-n3" x1="180" y1="55" x2="310" y2="60" stroke="#64748b" stroke-width="1.8" />
+            <line id="nsf-link-n3-n4" x1="310" y1="60" x2="440" y2="70" stroke="#64748b" stroke-width="1.8" />
+            <line id="nsf-link-n4-n5" x1="440" y1="70" x2="570" y2="60" stroke="#64748b" stroke-width="1.8" />
+            <line id="nsf-link-n5-n6" x1="570" y1="60" x2="700" y2="55" stroke="#64748b" stroke-width="1.8" />
+            <line id="nsf-link-n6-n7" x1="700" y1="55" x2="820" y2="65" stroke="#64748b" stroke-width="1.8" />
+            <line id="nsf-link-n7-n8" x1="820" y1="65" x2="850" y2="165" stroke="#64748b" stroke-width="1.8" />
+
+            <!-- Alternate Southern Route Links: N1 -> N13 -> N12 -> N11 -> N10 -> N9 -> N8 -->
+            <line id="nsf-link-n1-n13" x1="60" y1="75" x2="120" y2="175" stroke="#cbd5e1" stroke-width="1.8" />
+            <line id="nsf-link-n13-n12" x1="120" y1="175" x2="260" y2="165" stroke="#cbd5e1" stroke-width="1.8" />
+            <line id="nsf-link-n12-n11" x1="260" y1="165" x2="400" y2="185" stroke="#cbd5e1" stroke-width="1.8" />
+            <line id="nsf-link-n11-n10" x1="400" y1="185" x2="540" y2="155" stroke="#cbd5e1" stroke-width="1.8" />
+            <line id="nsf-link-n10-n9" x1="540" y1="155" x2="690" y2="175" stroke="#cbd5e1" stroke-width="1.8" />
+            <line id="nsf-link-n9-n8" x1="690" y1="175" x2="850" y2="165" stroke="#cbd5e1" stroke-width="1.8" />
+
+            <!-- Dynamic Cost Labels -->
+            <text id="nsf-cost-label-a" x="235" y="45" fill="#64748b" font-size="11" font-family="IBM Plex Mono">North Cost: 6</text>
+            <text id="nsf-cost-label-b" x="235" y="195" fill="#94a3b8" font-size="11" font-family="IBM Plex Mono">South Cost: 10</text>
+
+            <!-- 14 NSFNET Nodes -->
+            <!-- N1 (Seattle) -->
+            <g id="node-nsf-N1" transform="translate(60, 75)" class="cursor-pointer" onclick="setTargetRouter('N1')">
+              <circle id="circle-nsf-N1" r="17" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N1" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">N1</text>
+              <text y="28" text-anchor="middle" font-size="9" fill="#64748b">Seattle</text>
+            </g>
+
+            <!-- N2 (Palo Alto) -->
+            <g id="node-nsf-N2" transform="translate(180, 55)" class="cursor-pointer" onclick="setTargetRouter('N2')">
+              <circle id="circle-nsf-N2" r="16" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N2" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">N2</text>
+            </g>
+
+            <!-- N3 (Salt Lake) -->
+            <g id="node-nsf-N3" transform="translate(310, 60)" class="cursor-pointer" onclick="setTargetRouter('N3')">
+              <circle id="circle-nsf-N3" r="17" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N3" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">N3</text>
+              <text y="28" text-anchor="middle" font-size="9" fill="#64748b">Salt Lake</text>
+            </g>
+
+            <!-- N4 (Boulder) -->
+            <g id="node-nsf-N4" transform="translate(440, 70)" class="cursor-pointer" onclick="setTargetRouter('N4')">
+              <circle id="circle-nsf-N4" r="16" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N4" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">N4</text>
+            </g>
+
+            <!-- N5 (Lincoln) -->
+            <g id="node-nsf-N5" transform="translate(570, 60)" class="cursor-pointer" onclick="setTargetRouter('N5')">
+              <circle id="circle-nsf-N5" r="16" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N5" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">N5</text>
+            </g>
+
+            <!-- N6 (Chicago) -->
+            <g id="node-nsf-N6" transform="translate(700, 55)" class="cursor-pointer" onclick="setTargetRouter('N6')">
+              <circle id="circle-nsf-N6" r="17" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N6" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">N6</text>
+              <text y="28" text-anchor="middle" font-size="9" fill="#64748b">Chicago</text>
+            </g>
+
+            <!-- N7 (Ithaca) -->
+            <g id="node-nsf-N7" transform="translate(820, 65)" class="cursor-pointer" onclick="setTargetRouter('N7')">
+              <circle id="circle-nsf-N7" r="16" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N7" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#0f172a">N7</text>
+            </g>
+
+            <!-- N8 (Princeton - Dst) -->
+            <g id="node-nsf-N8" transform="translate(850, 165)" class="cursor-pointer" onclick="setTargetRouter('N8')">
+              <circle id="circle-nsf-N8" r="18" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+              <text id="text-nsf-N8" y="4" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">N8</text>
+              <text y="28" text-anchor="middle" font-size="9" fill="#64748b">Princeton</text>
+            </g>
+
+            <!-- N9 (Ann Arbor) -->
+            <g id="node-nsf-N9" transform="translate(690, 175)" class="cursor-pointer" onclick="setTargetRouter('N9')">
+              <circle id="circle-nsf-N9" r="16" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+              <text id="text-nsf-N9" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b">N9</text>
+            </g>
+
+            <!-- N10 (Pittsburgh) -->
+            <g id="node-nsf-N10" transform="translate(540, 155)" class="cursor-pointer" onclick="setTargetRouter('N10')">
+              <circle id="circle-nsf-N10" r="16" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+              <text id="text-nsf-N10" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b">N10</text>
+            </g>
+
+            <!-- N11 (Atlanta) -->
+            <g id="node-nsf-N11" transform="translate(400, 185)" class="cursor-pointer" onclick="setTargetRouter('N11')">
+              <circle id="circle-nsf-N11" r="17" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+              <text id="text-nsf-N11" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b">N11</text>
+              <text y="28" text-anchor="middle" font-size="9" fill="#94a3b8">Atlanta</text>
+            </g>
+
+            <!-- N12 (Houston) -->
+            <g id="node-nsf-N12" transform="translate(260, 165)" class="cursor-pointer" onclick="setTargetRouter('N12')">
+              <circle id="circle-nsf-N12" r="16" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+              <text id="text-nsf-N12" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b">N12</text>
+            </g>
+
+            <!-- N13 (San Diego) -->
+            <g id="node-nsf-N13" transform="translate(120, 175)" class="cursor-pointer" onclick="setTargetRouter('N13')">
+              <circle id="circle-nsf-N13" r="17" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+              <text id="text-nsf-N13" y="4" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b">N13</text>
+              <text y="28" text-anchor="middle" font-size="9" fill="#94a3b8">San Diego</text>
+            </g>
+          </svg>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Section 4: Academic Figures (Charts) -->
+    <div class="fig-card p-5 space-y-5">
+      <div class="border-b border-slate-200 pb-2">
+        <h2 class="text-sm font-semibold text-slate-900">Experimental results and figure analysis</h2>
+        <p class="text-xs text-slate-500">Direct comparative timeline comparing baseline static SPF vs. proposed adaptive routing on identical axes</p>
+      </div>
+
+      <!-- Figure 1: Packet Delivery Ratio (Both Series on Same Axes) -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-center text-xs">
+          <span class="font-semibold text-slate-800">Figure 1: Packet delivery ratio (PDR) during cyber attack</span>
+          <div class="flex items-center space-x-4 font-mono text-[11px]">
+            <span class="flex items-center"><span class="inline-block w-3 h-0.5 bg-blue-600 mr-1.5"></span>Proposed (adaptive Dijkstra)</span>
+            <span class="flex items-center"><span class="inline-block w-3 h-0.5 bg-red-600 border-dashed mr-1.5" style="border-top: 2px dashed #dc2626; height: 0;"></span>Baseline (static Dijkstra)</span>
+          </div>
+        </div>
+        <div class="h-48 bg-white border border-slate-200 rounded p-2">
+          <canvas id="pdrChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Figures 2 & 3: Delay and Link Cost -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+
+        <!-- Figure 2: Delay -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-semibold text-slate-800">Figure 2: End-to-end delay</span>
+            <div class="flex items-center space-x-3 font-mono text-[10.5px]">
+              <span class="text-blue-600">Proposed</span>
+              <span class="text-slate-500">Baseline</span>
+            </div>
+          </div>
+          <div class="h-40 bg-white border border-slate-200 rounded p-2">
+            <canvas id="delayChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Figure 3: Dynamic Link Cost -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-semibold text-slate-800">Figure 3: Dynamic Dijkstra path costs</span>
+            <div class="flex items-center space-x-3 font-mono text-[10.5px]">
+              <span class="text-red-600">Primary</span>
+              <span class="text-slate-500">Alternate</span>
+            </div>
+          </div>
+          <div class="h-40 bg-white border border-slate-200 rounded p-2">
+            <canvas id="costChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    let currentTopology = 'diamond';
+    let targetRouter = 'R2';
+
+    function setTargetRouter(node) {
+      targetRouter = node;
+      document.getElementById('targetRouterInput').value = node;
+      appendLog(`Target node set to ${node}`);
+    }
+
+    function switchTopology(topo) {
+      currentTopology = topo;
+      const btnDiamond = document.getElementById('btn-topo-diamond');
+      const btnNsfnet = document.getElementById('btn-topo-nsfnet');
+      const svgDiamond = document.getElementById('svg-diamond');
+      const svgNsfnet = document.getElementById('svg-nsfnet');
+      const baseCostVal = document.getElementById('base-cost-val');
+      const delayInfo = document.getElementById('topo-delay-info');
+
+      if (topo === 'diamond') {
+        btnDiamond.className = 'px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-medium transition';
+        btnNsfnet.className = 'px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition';
+        svgDiamond.classList.remove('hidden');
+        svgNsfnet.classList.add('hidden');
+        setTargetRouter('R2');
+        baseCostVal.innerText = '5';
+        delayInfo.innerText = 'Path A: 14 ms | Path B: 20 ms';
+        document.getElementById('active-path-label').innerText = 'Path A (R1 -> R2 -> R4) [Primary]';
+      } else {
+        btnNsfnet.className = 'px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-medium transition';
+        btnDiamond.className = 'px-2.5 py-1 rounded text-slate-600 hover:text-slate-900 transition';
+        svgNsfnet.classList.remove('hidden');
+        svgDiamond.classList.add('hidden');
+        setTargetRouter('N3');
+        baseCostVal.innerText = '6';
+        delayInfo.innerText = 'Northern: 18 ms | Southern: 26 ms';
+        document.getElementById('active-path-label').innerText = 'Northern path (N1 -> ... -> N8) [Primary]';
+      }
+      resetTopologySVG();
+    }
+
+    function onScenarioPresetChange() {
+      const preset = document.getElementById('scenarioPreset').value;
+      const dropInput = document.getElementById('dropRateInput');
+
+      if (preset === 'standard') {
+        dropInput.value = 40;
+      } else if (preset === 'weak_attack') {
+        dropInput.value = 8;
+      } else if (preset === 'congestion') {
+        dropInput.value = 0;
+      } else if (preset === 'delay_anomaly') {
+        dropInput.value = 25;
+      } else if (preset === 'clean_run') {
+        dropInput.value = 0;
+      }
+    }
+
+    function appendLog(text) {
+      const logBox = document.getElementById('event-log-box');
+      const entry = document.createElement('div');
+      entry.innerText = `> ${text}`;
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function clearEventLog() {
+      document.getElementById('event-log-box').innerHTML = '<div class="text-slate-400">&gt; Log cleared.</div>';
+    }
+
+    // Chart.js Academic Style Base Options
+    const commonChartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 100 },
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Time (s)',
+            font: { family: 'IBM Plex Sans', size: 11, weight: '500' },
+            color: '#64748b'
+          },
+          grid: { color: '#f1f5f9' },
+          ticks: { color: '#64748b', font: { family: 'IBM Plex Mono', size: 10 } }
+        },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: { color: '#64748b', font: { family: 'IBM Plex Mono', size: 10 } }
+        }
+      }
+    };
+
+    // Chart 1: PDR Comparison (Proposed vs Baseline on same axes)
+    const pdrCtx = document.getElementById('pdrChart').getContext('2d');
+    const pdrChart = new Chart(pdrCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Proposed (adaptive)',
+            data: [],
+            borderColor: '#2563eb', // Blue
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            tension: 0.1,
+            pointRadius: 0
+          },
+          {
+            label: 'Baseline (static)',
+            data: [],
+            borderColor: '#dc2626', // Red
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 4],
+            tension: 0.1,
+            pointRadius: 0
+          }
+        ]
+      },
+      options: {
+        ...commonChartOptions,
+        scales: {
+          ...commonChartOptions.scales,
+          y: {
+            ...commonChartOptions.scales.y,
+            title: {
+              display: true,
+              text: 'PDR (%)',
+              font: { family: 'IBM Plex Sans', size: 11, weight: '500' },
+              color: '#64748b'
+            },
+            min: 30,
+            max: 105
+          }
+        }
+      }
+    });
+
+    // Chart 2: Delay Comparison
+    const delayCtx = document.getElementById('delayChart').getContext('2d');
+    const delayChart = new Chart(delayCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Proposed (adaptive)',
+            data: [],
+            borderColor: '#2563eb',
+            borderWidth: 2,
+            tension: 0.1,
+            pointRadius: 0
+          },
+          {
+            label: 'Baseline (static)',
+            data: [],
+            borderColor: '#64748b',
+            borderWidth: 1.8,
+            borderDash: [4, 4],
+            tension: 0.1,
+            pointRadius: 0
+          }
+        ]
+      },
+      options: {
+        ...commonChartOptions,
+        scales: {
+          ...commonChartOptions.scales,
+          y: {
+            ...commonChartOptions.scales.y,
+            title: {
+              display: true,
+              text: 'Delay (ms)',
+              font: { family: 'IBM Plex Sans', size: 11, weight: '500' },
+              color: '#64748b'
+            },
+            min: 10,
+            max: 32
+          }
+        }
+      }
+    });
+
+    // Chart 3: Cost Comparison
+    const costCtx = document.getElementById('costChart').getContext('2d');
+    const costChart = new Chart(costCtx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Primary Path',
+            data: [],
+            borderColor: '#dc2626',
+            borderWidth: 2,
+            tension: 0.1,
+            pointRadius: 0
+          },
+          {
+            label: 'Alternate Path',
+            data: [],
+            borderColor: '#64748b',
+            borderWidth: 1.8,
+            borderDash: [4, 4],
+            tension: 0,
+            pointRadius: 0
+          }
+        ]
+      },
+      options: {
+        ...commonChartOptions,
+        scales: {
+          ...commonChartOptions.scales,
+          y: {
+            ...commonChartOptions.scales.y,
+            title: {
+              display: true,
+              text: 'Cost',
+              font: { family: 'IBM Plex Sans', size: 11, weight: '500' },
+              color: '#64748b'
+            },
+            min: 0,
+            max: 38
+          }
+        }
+      }
+    });
+
+    // WebSocket Telemetry Connection
+    let ws;
+    function initWebSocket() {
+      ws = new WebSocket(`ws://${location.host}/ws/telemetry`);
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        updateTelemetry(data);
+      };
+
+      ws.onclose = () => {
+        setTimeout(initWebSocket, 2000);
+      };
+    }
+    initWebSocket();
+
+    function updateTelemetry(data) {
+      if (data.is_reset) {
+        document.getElementById('sim-time').innerText = '0.0s';
+        document.getElementById('status-dot').className = 'inline-block w-2 h-2 rounded-full bg-slate-400 mr-2 transition-colors';
+        document.getElementById('status-text').innerText = 'Normal operation';
+
+        const activePathLabel = document.getElementById('active-path-label');
+        if (currentTopology === 'diamond') {
+          activePathLabel.innerText = 'Path A (R1 -> R2 -> R4) [Primary]';
+        } else {
+          activePathLabel.innerText = 'Northern path (N1 -> ... -> N8) [Primary]';
+        }
+        activePathLabel.className = 'font-semibold text-slate-800';
+
+        // Reset live model terms
+        document.getElementById('term-drop').innerText = '0.0000';
+        document.getElementById('term-anomaly').innerText = '0.0000';
+        document.getElementById('term-delay').innerText = '0.0000';
+        document.getElementById('term-fault').innerText = '0.0000';
+        document.getElementById('risk-score-val').innerText = '0.0000';
+        document.getElementById('cost-penalty-val').innerText = '+0';
+        document.getElementById('total-cost-val').innerText = data.cost_r2;
+        document.getElementById('decay-badge').innerText = 'Recovery decay: Inactive';
+
+        // Reset topology lines
+        resetTopologySVG();
+
+        // Reset charts
+        pdrChart.data.labels = [];
+        pdrChart.data.datasets[0].data = [];
+        pdrChart.data.datasets[1].data = [];
+        delayChart.data.labels = [];
+        delayChart.data.datasets[0].data = [];
+        delayChart.data.datasets[1].data = [];
+        costChart.data.labels = [];
+        costChart.data.datasets[0].data = [];
+        costChart.data.datasets[1].data = [];
+        pdrChart.update();
+        delayChart.update();
+        costChart.update();
+
+        appendLog('System reset to baseline state.');
+        return;
+      }
+
+      // Time
+      document.getElementById('sim-time').innerText = data.time.toFixed(1) + 's';
+
+      // Status indicator (only one indicator, as requested)
+      const dot = document.getElementById('status-dot');
+      const text = document.getElementById('status-text');
+      if (data.attack_active) {
+        dot.className = 'inline-block w-2 h-2 rounded-full bg-red-600 mr-2 transition-colors';
+        text.innerText = 'Attack active';
+        text.className = 'text-red-700 font-medium';
+      } else if (data.math_model && data.math_model.is_recovering) {
+        dot.className = 'inline-block w-2 h-2 rounded-full bg-blue-600 mr-2 transition-colors';
+        text.innerText = 'Recovery decay active (x0.70)';
+        text.className = 'text-blue-700 font-medium';
+      } else {
+        dot.className = 'inline-block w-2 h-2 rounded-full bg-slate-400 mr-2 transition-colors';
+        text.innerText = 'Normal operation';
+        text.className = 'text-slate-600 font-medium';
+      }
+
+      // Update Math Model Terms Panel
+      if (data.math_model) {
+        document.getElementById('term-drop').innerText = data.math_model.term_drop.toFixed(4);
+        document.getElementById('term-anomaly').innerText = data.math_model.term_anomaly.toFixed(4);
+        document.getElementById('term-delay').innerText = data.math_model.term_delay.toFixed(4);
+        document.getElementById('term-fault').innerText = data.math_model.term_fault.toFixed(4);
+        document.getElementById('risk-score-val').innerText = data.math_model.risk_score.toFixed(4);
+        document.getElementById('cost-penalty-val').innerText = `+${data.math_model.cost_penalty}`;
+        document.getElementById('total-cost-val').innerText = data.cost_r2;
+
+        if (data.math_model.is_recovering) {
+          document.getElementById('decay-badge').innerText = 'Recovery decay: Active (x0.70)';
+          document.getElementById('decay-badge').className = 'text-[11px] font-mono text-blue-600 font-medium';
+        } else {
+          document.getElementById('decay-badge').innerText = 'Recovery decay: Inactive';
+          document.getElementById('decay-badge').className = 'text-[11px] font-mono text-slate-500';
+        }
+      }
+
+      // Update Topology Visualization
+      updateTopologySVG(data);
+
+      // Append Log
+      if (data.event_log) {
+        appendLog(data.event_log);
+      }
+
+      // Update Charts
+      const timeLabel = data.time.toFixed(0);
+      pdrChart.data.labels.push(timeLabel);
+      pdrChart.data.datasets[0].data.push(data.pdr_proposed);
+      pdrChart.data.datasets[1].data.push(data.pdr_baseline);
+
+      delayChart.data.labels.push(timeLabel);
+      delayChart.data.datasets[0].data.push(data.delay_proposed);
+      delayChart.data.datasets[1].data.push(data.delay_baseline);
+
+      costChart.data.labels.push(timeLabel);
+      costChart.data.datasets[0].data.push(data.cost_r2);
+      costChart.data.datasets[1].data.push(data.cost_r3);
+
+      if (pdrChart.data.labels.length > 70) {
+        pdrChart.data.labels.shift();
+        pdrChart.data.datasets[0].data.shift();
+        pdrChart.data.datasets[1].data.shift();
+        delayChart.data.labels.shift();
+        delayChart.data.datasets[0].data.shift();
+        delayChart.data.datasets[1].data.shift();
+        costChart.data.labels.shift();
+        costChart.data.datasets[0].data.shift();
+        costChart.data.datasets[1].data.shift();
+      }
+
+      pdrChart.update();
+      delayChart.update();
+      costChart.update();
+    }
+
+    function resetTopologySVG() {
+      // 1. Reset Diamond Topology
+      const circleR2 = document.getElementById('circle-r2');
+      const textR2 = document.getElementById('text-r2');
+      const circleR3 = document.getElementById('circle-r3');
+      const textR3 = document.getElementById('text-r3');
+
+      if (circleR2 && circleR3) {
+        circleR2.setAttribute('stroke', '#475569');
+        circleR2.setAttribute('fill', '#ffffff');
+        textR2.setAttribute('fill', '#0f172a');
+
+        circleR3.setAttribute('stroke', '#94a3b8');
+        circleR3.setAttribute('fill', '#ffffff');
+        textR3.setAttribute('fill', '#64748b');
+
+        document.getElementById('link-r1-r2').setAttribute('stroke', '#64748b');
+        document.getElementById('link-r2-r4').setAttribute('stroke', '#64748b');
+        document.getElementById('link-r1-r3').setAttribute('stroke', '#cbd5e1');
+        document.getElementById('link-r3-r4').setAttribute('stroke', '#cbd5e1');
+        document.getElementById('link-r1-r3').removeAttribute('class');
+        document.getElementById('link-r3-r4').removeAttribute('class');
+
+        document.getElementById('cost-label-a').textContent = 'Cost: 5';
+        document.getElementById('cost-label-a').setAttribute('fill', '#64748b');
+        document.getElementById('cost-label-b').textContent = 'Cost: 8';
+        document.getElementById('cost-label-b').setAttribute('fill', '#94a3b8');
+      }
+
+      // 2. Reset NSFNET Topology
+      const nsfNodes = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9', 'N10', 'N11', 'N12', 'N13'];
+      nsfNodes.forEach(n => {
+        const c = document.getElementById('circle-nsf-' + n);
+        const t = document.getElementById('text-nsf-' + n);
+        if (c && t) {
+          c.setAttribute('stroke', ['N1','N2','N3','N4','N5','N6','N7','N8'].includes(n) ? '#475569' : '#94a3b8');
+          c.setAttribute('fill', '#ffffff');
+          t.setAttribute('fill', ['N1','N2','N3','N4','N5','N6','N7','N8'].includes(n) ? '#0f172a' : '#64748b');
+        }
+      });
+
+      const northLinks = ['nsf-link-n1-n2', 'nsf-link-n2-n3', 'nsf-link-n3-n4', 'nsf-link-n4-n5', 'nsf-link-n5-n6', 'nsf-link-n6-n7', 'nsf-link-n7-n8'];
+      const southLinks = ['nsf-link-n1-n13', 'nsf-link-n13-n12', 'nsf-link-n12-n11', 'nsf-link-n11-n10', 'nsf-link-n10-n9', 'nsf-link-n9-n8'];
+
+      northLinks.forEach(id => {
+        const l = document.getElementById(id);
+        if (l) {
+          l.setAttribute('stroke', '#64748b');
+          l.removeAttribute('class');
+        }
+      });
+      southLinks.forEach(id => {
+        const l = document.getElementById(id);
+        if (l) {
+          l.setAttribute('stroke', '#cbd5e1');
+          l.removeAttribute('class');
+        }
+      });
+
+      const nsfCostA = document.getElementById('nsf-cost-label-a');
+      const nsfCostB = document.getElementById('nsf-cost-label-b');
+      if (nsfCostA) {
+        nsfCostA.textContent = 'North Cost: 6';
+        nsfCostA.setAttribute('fill', '#64748b');
+      }
+      if (nsfCostB) {
+        nsfCostB.textContent = 'South Cost: 10';
+        nsfCostB.setAttribute('fill', '#94a3b8');
+      }
+    }
+
+    function updateTopologySVG(data) {
+      const activePathLabel = document.getElementById('active-path-label');
+
+      if (data.topology === 'diamond') {
+        const circleR2 = document.getElementById('circle-r2');
+        const textR2 = document.getElementById('text-r2');
+        const circleR3 = document.getElementById('circle-r3');
+        const textR3 = document.getElementById('text-r3');
+        const linkR1R2 = document.getElementById('link-r1-r2');
+        const linkR2R4 = document.getElementById('link-r2-r4');
+        const linkR1R3 = document.getElementById('link-r1-r3');
+        const linkR3R4 = document.getElementById('link-r3-r4');
+
+        document.getElementById('cost-label-a').textContent = `Cost: ${data.cost_r2}`;
+        document.getElementById('cost-label-b').textContent = `Cost: ${data.cost_r3}`;
+
+        // Turn R2 red during attack
+        if (data.attack_active) {
+          circleR2.setAttribute('stroke', '#dc2626');
+          circleR2.setAttribute('fill', '#fef2f2');
+          textR2.setAttribute('fill', '#dc2626');
+          document.getElementById('cost-label-a').setAttribute('fill', '#dc2626');
+        } else {
+          circleR2.setAttribute('stroke', '#475569');
+          circleR2.setAttribute('fill', '#ffffff');
+          textR2.setAttribute('fill', '#0f172a');
+          document.getElementById('cost-label-a').setAttribute('fill', '#64748b');
+        }
+
+        // Animate reroute to R3 when alternate path is active
+        if (data.active_path === 'Alternate') {
+          activePathLabel.innerText = 'Path B (R1 -> R3 -> R4) [Rerouted via alternate]';
+          activePathLabel.className = 'font-semibold text-blue-600';
+
+          linkR1R2.setAttribute('stroke', '#e2e8f0');
+          linkR2R4.setAttribute('stroke', '#e2e8f0');
+
+          linkR1R3.setAttribute('stroke', '#2563eb');
+          linkR3R4.setAttribute('stroke', '#2563eb');
+          linkR1R3.setAttribute('class', 'reroute-flow');
+          linkR3R4.setAttribute('class', 'reroute-flow');
+
+          circleR3.setAttribute('stroke', '#2563eb');
+          circleR3.setAttribute('fill', '#eff6ff');
+          textR3.setAttribute('fill', '#2563eb');
+          document.getElementById('cost-label-b').setAttribute('fill', '#2563eb');
+        } else {
+          activePathLabel.innerText = 'Path A (R1 -> R2 -> R4) [Primary optimal]';
+          activePathLabel.className = 'font-semibold text-slate-800';
+
+          linkR1R2.setAttribute('stroke', '#64748b');
+          linkR2R4.setAttribute('stroke', '#64748b');
+
+          linkR1R3.setAttribute('stroke', '#cbd5e1');
+          linkR3R4.setAttribute('stroke', '#cbd5e1');
+          linkR1R3.removeAttribute('class');
+          linkR3R4.removeAttribute('class');
+
+          circleR3.setAttribute('stroke', '#94a3b8');
+          circleR3.setAttribute('fill', '#ffffff');
+          textR3.setAttribute('fill', '#64748b');
+          document.getElementById('cost-label-b').setAttribute('fill', '#94a3b8');
+        }
+      }
+
+      if (data.topology === 'nsfnet') {
+        const nsfNodes = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9', 'N10', 'N11', 'N12', 'N13'];
+        const northLinks = ['nsf-link-n1-n2', 'nsf-link-n2-n3', 'nsf-link-n3-n4', 'nsf-link-n4-n5', 'nsf-link-n5-n6', 'nsf-link-n6-n7', 'nsf-link-n7-n8'];
+        const southLinks = ['nsf-link-n1-n13', 'nsf-link-n13-n12', 'nsf-link-n12-n11', 'nsf-link-n11-n10', 'nsf-link-n10-n9', 'nsf-link-n9-n8'];
+
+        document.getElementById('nsf-cost-label-a').textContent = `North Cost: ${data.cost_r2}`;
+        document.getElementById('nsf-cost-label-b').textContent = `South Cost: ${data.cost_r3}`;
+
+        // Reset all NSFNET nodes
+        nsfNodes.forEach(n => {
+          const c = document.getElementById('circle-nsf-' + n);
+          const t = document.getElementById('text-nsf-' + n);
+          if (c && t) {
+            c.setAttribute('stroke', ['N1','N2','N3','N4','N5','N6','N7','N8'].includes(n) ? '#475569' : '#94a3b8');
+            c.setAttribute('fill', '#ffffff');
+            t.setAttribute('fill', ['N1','N2','N3','N4','N5','N6','N7','N8'].includes(n) ? '#0f172a' : '#64748b');
+          }
+        });
+
+        // Turn targeted node red if attack active
+        const matchedTarget = nsfNodes.find(n => data.target_router.includes(n));
+        if (matchedTarget && data.attack_active) {
+          const c = document.getElementById('circle-nsf-' + matchedTarget);
+          const t = document.getElementById('text-nsf-' + matchedTarget);
+          if (c) {
+            c.setAttribute('stroke', '#dc2626');
+            c.setAttribute('fill', '#fef2f2');
+          }
+          if (t) t.setAttribute('fill', '#dc2626');
+          document.getElementById('nsf-cost-label-a').setAttribute('fill', '#dc2626');
+        } else {
+          document.getElementById('nsf-cost-label-a').setAttribute('fill', '#64748b');
+        }
+
+        if (data.active_path === 'Alternate') {
+          activePathLabel.innerText = 'Southern path (N1 -> N13 -> ... -> N8) [Rerouted via alternate]';
+          activePathLabel.className = 'font-semibold text-blue-600';
+
+          northLinks.forEach(id => {
+            const l = document.getElementById(id);
+            if (l) {
+              l.setAttribute('stroke', '#e2e8f0');
+              l.removeAttribute('class');
+            }
+          });
+
+          southLinks.forEach(id => {
+            const l = document.getElementById(id);
+            if (l) {
+              l.setAttribute('stroke', '#2563eb');
+              l.setAttribute('class', 'reroute-flow');
+            }
+          });
+
+          ['N13', 'N12', 'N11', 'N10', 'N9'].forEach(n => {
+            const c = document.getElementById('circle-nsf-' + n);
+            const t = document.getElementById('text-nsf-' + n);
+            if (c) {
+              c.setAttribute('stroke', '#2563eb');
+              c.setAttribute('fill', '#eff6ff');
+            }
+            if (t) t.setAttribute('fill', '#2563eb');
+          });
+
+          document.getElementById('nsf-cost-label-b').setAttribute('fill', '#2563eb');
+        } else {
+          activePathLabel.innerText = 'Northern path (N1 -> N2 -> ... -> N8) [Primary optimal]';
+          activePathLabel.className = 'font-semibold text-slate-800';
+
+          northLinks.forEach(id => {
+            const l = document.getElementById(id);
+            if (l) {
+              l.setAttribute('stroke', '#64748b');
+              l.removeAttribute('class');
+            }
+          });
+
+          southLinks.forEach(id => {
+            const l = document.getElementById(id);
+            if (l) {
+              l.setAttribute('stroke', '#cbd5e1');
+              l.removeAttribute('class');
+            }
+          });
+
+          document.getElementById('nsf-cost-label-b').setAttribute('fill', '#94a3b8');
+        }
+      }
+    }
+
+    async function triggerSimulation() {
+      const scenario = document.getElementById('scenarioPreset').value;
+      const dropRate = document.getElementById('dropRateInput').value;
+      const attackStart = document.getElementById('attackStart').value;
+      const attackEnd = document.getElementById('attackEnd').value;
+      const isAttack = scenario !== 'clean_run';
+
+      // Clear charts
+      pdrChart.data.labels = [];
+      pdrChart.data.datasets[0].data = [];
+      pdrChart.data.datasets[1].data = [];
+      delayChart.data.labels = [];
+      delayChart.data.datasets[0].data = [];
+      delayChart.data.datasets[1].data = [];
+      costChart.data.labels = [];
+      costChart.data.datasets[0].data = [];
+      costChart.data.datasets[1].data = [];
+      pdrChart.update();
+      delayChart.update();
+      costChart.update();
+
+      appendLog(`Simulation started (${currentTopology}, target: ${targetRouter}, scenario: ${scenario}, drop: ${dropRate}%).`);
+
+      await fetch(`/api/run-simulation?attack=${isAttack}&drop_rate=${dropRate}&mode=proposed&target_router=${targetRouter}&topology=${currentTopology}&delta=50&attack_start=${attackStart}&attack_end=${attackEnd}&scenario=${scenario}&w1=0.50&w2=0.20&w3=0.20&w4=0.10`, {
+        method: 'POST'
+      });
+    }
+
+    async function stopAttack() {
+      appendLog('Stop attack requested by operator.');
+      await fetch('/api/stop-attack', { method: 'POST' });
+    }
+
+    async function resetSystem() {
+      appendLog('Reset command dispatched.');
+      await fetch('/api/reset', { method: 'POST' });
+    }
+  </script>
+</body>
+</html>

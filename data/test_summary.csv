@@ -1,0 +1,5 @@
+w1,w2,w3,w4,scenario,min_pdr,convergence_time,path_switches,false_positive
+0.50,0.20,0.20,0.10,standard,99.81,0.00,2,0
+0.50,0.20,0.20,0.10,weak_attack,99.81,0.00,2,0
+0.50,0.20,0.20,0.10,congestion,99.05,0.00,0,0
+0.50,0.20,0.20,0.10,delay_anomaly,99.71,0.00,0,0
