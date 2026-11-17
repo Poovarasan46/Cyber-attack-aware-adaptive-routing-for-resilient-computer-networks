@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ Cyber-Attack-Aware Adaptive Routing for Resilient Computer Networks
+# Cyber-Attack-Aware Adaptive Routing for Resilient Computer Networks
 
 **Autonomous Threat-Aware Telemetry, Dynamic Dijkstra Cost Inflation, and Sub-Second Rerouting for Next-Generation Resilient Network Topologies**
 
